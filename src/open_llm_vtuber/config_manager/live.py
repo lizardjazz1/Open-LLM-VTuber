@@ -9,14 +9,9 @@ class BiliBiliLiveConfig(I18nMixin):
     room_ids: List[int] = Field([], alias="room_ids")
     sessdata: str = Field("", alias="sessdata")
 
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "room_ids": Description(
-            en="List of BiliBili live room IDs to monitor", zh="要监控的B站直播间ID列表"
-        ),
-        "sessdata": Description(
-            en="SESSDATA cookie value for authenticated requests (optional)",
-            zh="用于认证请求的SESSDATA cookie值（可选）",
-        ),
+    DESCRIPTIONS = {
+        "room_ids": Description(i18n_key="list_of_bilibili_live_room_ids_to_monitor"),
+        "sessdata": Description(i18n_key="sessdata_cookie_value_for_authenticated_requests"),
     }
 
 
@@ -27,8 +22,6 @@ class LiveConfig(I18nMixin):
         BiliBiliLiveConfig(), alias="bilibili_live"
     )
 
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "bilibili_live": Description(
-            en="Configuration for BiliBili Live platform", zh="B站直播平台配置"
-        ),
+    DESCRIPTIONS = {
+        "bilibili_live": Description(i18n_key="configuration_for_bilibili_live_streaming"),
     }

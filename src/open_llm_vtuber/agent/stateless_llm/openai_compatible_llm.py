@@ -20,6 +20,22 @@ from loguru import logger
 from .stateless_llm_interface import StatelessLLMInterface
 from ...mcpp.types import ToolCallObject
 
+# Harmony imports
+try:
+    from openai_harmony import (
+        load_harmony_encoding,
+        HarmonyEncodingName,
+        Role,
+        Message,
+        Conversation,
+        SystemContent,
+        TextContent,
+    )
+    HARMONY_AVAILABLE = True
+except ImportError:
+    HARMONY_AVAILABLE = False
+    logger.warning("openai-harmony not available. Harmony mode will be disabled.")
+
 
 class AsyncLLM(StatelessLLMInterface):
     def __init__(
@@ -30,6 +46,8 @@ class AsyncLLM(StatelessLLMInterface):
         organization_id: str = "z",
         project_id: str = "z",
         temperature: float = 1.0,
+        use_harmony: bool = False,
+        max_tokens: int = 150,
     ):
         """
         Initializes an instance of the `AsyncLLM` class.
@@ -41,10 +59,13 @@ class AsyncLLM(StatelessLLMInterface):
         - project_id (str, optional): The project ID for the OpenAI API. Defaults to "z".
         - llm_api_key (str, optional): The API key for the OpenAI API. Defaults to "z".
         - temperature (float, optional): What sampling temperature to use, between 0 and 2. Defaults to 1.0.
+        - use_harmony (bool, optional): Whether to use OpenAI Harmony format. Defaults to False.
         """
         self.base_url = base_url
         self.model = model
         self.temperature = temperature
+        self.use_harmony = use_harmony and HARMONY_AVAILABLE
+        self.max_tokens = max_tokens
         self.client = AsyncOpenAI(
             base_url=base_url,
             organization=organization_id,
@@ -53,8 +74,17 @@ class AsyncLLM(StatelessLLMInterface):
         )
         self.support_tools = True
 
+        # Инициализируем Harmony если доступен и включен
+        if self.use_harmony:
+            try:
+                self.harmony_enc = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
+                logger.info("Harmony encoding initialized for OpenAICompatibleLLM")
+            except Exception as e:
+                logger.error(f"Failed to initialize Harmony encoding: {e}")
+                self.use_harmony = False
+
         logger.info(
-            f"Initialized AsyncLLM with the parameters: {self.base_url}, {self.model}"
+            f"Initialized AsyncLLM with the parameters: {self.base_url}, {self.model}, use_harmony={self.use_harmony}"
         )
 
     async def chat_completion(
@@ -84,6 +114,12 @@ class AsyncLLM(StatelessLLMInterface):
         # Tool call related state variables
         accumulated_tool_calls = {}
         in_tool_call = False
+        
+        # Harmony parsing variables
+        if self.use_harmony:
+            accumulated_response = ""
+            in_final_channel = False
+            final_content = ""
 
         try:
             # If system prompt is provided, add it to the messages
@@ -104,6 +140,7 @@ class AsyncLLM(StatelessLLMInterface):
                 model=self.model,
                 stream=True,
                 temperature=self.temperature,
+                max_tokens=getattr(self, 'max_tokens', 150),  # Ограничиваем длину ответа
                 tools=available_tools,
             )
             logger.debug(
@@ -183,7 +220,29 @@ class AsyncLLM(StatelessLLMInterface):
                     continue
                 elif chunk.choices[0].delta.content is None:
                     chunk.choices[0].delta.content = ""
-                yield chunk.choices[0].delta.content
+                
+                content = chunk.choices[0].delta.content
+                
+                # Harmony parsing logic
+                if self.use_harmony and content:
+                    accumulated_response += content
+                    
+                    # Check for final channel markers
+                    if "<|channel|>final<|message|>" in accumulated_response:
+                        in_final_channel = True
+                        # Extract content after the final channel marker
+                        final_start = accumulated_response.find("<|channel|>final<|message|>")
+                        if final_start != -1:
+                            final_content = accumulated_response[final_start + len("<|channel|>final<|message|>"):]
+                            # Remove any remaining Harmony tokens
+                            final_content = final_content.replace("<|end|>", "").replace("<|start|>", "").replace("assistant", "").replace("<|channel|>final<|message|>", "")
+                            yield final_content
+                    elif in_final_channel:
+                        # We're in the final channel, yield the content
+                        yield content
+                else:
+                    # Non-Harmony mode or no content
+                    yield content
 
             # If stream ends while still in a tool call, make sure to yield the tool call
             if in_tool_call and accumulated_tool_calls:
@@ -215,14 +274,18 @@ class AsyncLLM(StatelessLLMInterface):
                 logger.warning(
                     f"{self.model} does not support tools. Disabling tool support."
                 )
+                # Добавляем детальное логирование инструментов
+                if tools and tools != NOT_GIVEN:
+                    tool_names = [tool.get('function', {}).get('name', 'unknown') for tool in tools]
+                    logger.warning(
+                        f"Attempted to use tools: {tool_names} with model {self.model}"
+                    )
+                logger.warning(
+                    f"Full API error message: {str(e)}"
+                )
                 yield "__API_NOT_SUPPORT_TOOLS__"
-                return
-            logger.error(f"LLM API: Error occurred: {e}")
-            logger.info(f"Base URL: {self.base_url}")
-            logger.info(f"Model: {self.model}")
-            logger.info(f"Messages: {messages}")
-            logger.info(f"temperature: {self.temperature}")
-            yield "Error calling the chat endpoint: Error occurred while generating response. See the logs for details."
+                # Не выходим из функции, позволяем обработчику в агенте обработать сигнал
+                # return
 
         finally:
             # make sure the stream is properly closed

@@ -141,14 +141,32 @@ def _filter_nested(text: str, left: str, right: str) -> str:
 def filter_brackets(text: str) -> str:
     """
     Filter text to remove all text within brackets, handling nested cases.
-
-    Args:
-        text (str): The text to filter.
-
-    Returns:
-        str: The filtered text.
+    But preserve voice commands in curly braces (preserves both + and -).
     """
-    return _filter_nested(text, "[", "]")
+    import re
+    # Find all voice commands with their positions (always capture sign if present)
+    voice_pattern = r'\{rate:(?:\+|\-)?\d+%\}|\{volume:(?:\+|\-)?\d+%\}|\{pitch:(?:\+|\-)?\d+Hz\}'
+    matches = list(re.finditer(voice_pattern, text))
+    
+    # Save commands and their positions
+    preserved = []
+    for m in matches:
+        preserved.append((m.start(), m.end(), m.group(0)))  # always original string!
+    
+    # Remove all content in square brackets, but only outside voice commands
+    result = []
+    last = 0
+    for start, end, cmd in preserved:
+        chunk = text[last:start]
+        chunk = _filter_nested(chunk, "[", "]")
+        result.append(chunk)
+        result.append(cmd)
+        last = end
+    chunk = text[last:]
+    chunk = _filter_nested(chunk, "[", "]")
+    result.append(chunk)
+    
+    return ''.join(result).strip()
 
 
 def filter_parentheses(text: str) -> str:

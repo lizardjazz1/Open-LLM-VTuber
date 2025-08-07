@@ -1,0 +1,50 @@
+{
+  "app": {
+    "name": "Open-LLM-VTuber",
+    "description": "低遅延音声ベースのLLM対話ツール",
+    "version": "バージョン"
+  },
+  "server": {
+    "starting": "Open-LLM-VTuberサーバーを起動中...",
+    "started": "サーバーが正常に起動しました",
+    "stopping": "サーバーを停止中...",
+    "error": "サーバーエラーが発生しました",
+    "port_in_use": "ポート{port}は既に使用されています",
+    "host": "サーバーホストアドレス",
+    "port": "サーバーポート番号",
+    "websocket_connected": "WebSocketクライアントが接続されました",
+    "websocket_disconnected": "WebSocketクライアントが切断されました",
+    "websocket_error": "WebSocketエラーが発生しました"
+  },
+  "config": {
+    "loading": "設定を読み込み中...",
+    "loaded": "設定が正常に読み込まれました",
+    "error": "設定の読み込みエラー",
+    "not_found": "設定ファイルが見つかりません",
+    "invalid": "無効な設定",
+    "backup_created": "設定バックアップが作成されました",
+    "backup_restored": "設定バックアップが復元されました",
+    "validation_error": "設定検証エラー",
+    "field_required": "フィールド'{field}'は必須です",
+    "invalid_value": "フィールド'{field}'の値が無効です",
+    "conf_version": "設定バージョン",
+    "host": "サーバーホストアドレス",
+    "port": "サーバーポート番号",
+    "config_alts_dir": "代替設定のディレクトリ",
+    "config_alt": "使用する代替設定",
+    "enable_proxy": "WebSocket接続のプロキシモードを有効にする",
+    "tool_prompts": "キャラクタープロンプトに追加されるツールプロンプト"
+  },
+  "ui": {
+    "loading": "読み込み中...",
+    "error": "エラーが発生しました",
+    "success": "操作が正常に完了しました",
+    "warning": "警告",
+    "info": "情報",
+    "confirm": "確認してください",
+    "cancel": "キャンセル",
+    "ok": "OK",
+    "yes": "はい",
+    "no": "いいえ"
+  }
+} 

@@ -12,16 +12,9 @@ class AzureASRConfig(I18nMixin):
     languages: list[str] = Field(["en-US", "zh-CN"], alias="languages")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "api_key": Description(
-            en="API key for Azure ASR service", zh="Azure ASR 服务的 API 密钥"
-        ),
-        "region": Description(
-            en="Azure region (e.g., eastus)", zh="Azure 区域（如 eastus)"
-        ),
-        "languages": Description(
-            en="List of languages to detect (e.g., ['en-US', 'zh-CN'])",
-            zh="要检测的语言列表（如 ['en-US', 'zh-CN'])",
-        ),
+        "api_key": Description(i18n_key="config.asr.azure.api_key"),
+        "region": Description(i18n_key="config.asr.azure.region"),
+        "languages": Description(i18n_key="config.asr.azure.languages"),
     }
 
 
@@ -35,26 +28,15 @@ class FasterWhisperConfig(I18nMixin):
     compute_type: Literal["int8", "float16", "float32"] = Field(
         "int8", alias="compute_type"
     )
+    prompt: str = Field("", alias="prompt")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "model_path": Description(
-            en="Path to the Faster Whisper model", zh="Faster Whisper 模型路径"
-        ),
-        "download_root": Description(
-            en="Root directory for downloading models", zh="模型下载根目录"
-        ),
-        "language": Description(
-            en="Language code (e.g., en, zh) or empty string for auto-detect",
-            zh="语言代码（如 en, zh）或留空以自动检测",
-        ),
-        "device": Description(
-            en="Device to use for inference (cpu, cuda, or auto)",
-            zh="推理设备（cpu, cuda, auto）",
-        ),
-        "compute_type": Description(
-            en="Compute type for the model (int8, float16, or float32)",
-            zh="模型的计算类型（int8、float16 或 float32）",
-        ),
+        "model_path": Description(i18n_key="config.asr.faster_whisper.model_path"),
+        "download_root": Description(i18n_key="config.asr.faster_whisper.download_root"),
+        "language": Description(i18n_key="config.asr.faster_whisper.language"),
+        "device": Description(i18n_key="config.asr.faster_whisper.device"),
+        "compute_type": Description(i18n_key="config.asr.faster_whisper.compute_type"),
+        "prompt": Description(i18n_key="config.asr.faster_whisper.prompt"),
     }
 
 
@@ -66,23 +48,15 @@ class WhisperCPPConfig(I18nMixin):
     print_realtime: bool = Field(False, alias="print_realtime")
     print_progress: bool = Field(False, alias="print_progress")
     language: str = Field("auto", alias="language")
+    prompt: str = Field("", alias="prompt")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "model_name": Description(
-            en="Name of the Whisper model", zh="Whisper 模型名称"
-        ),
-        "model_dir": Description(
-            en="Directory containing Whisper models", zh="Whisper 模型目录"
-        ),
-        "print_realtime": Description(
-            en="Print output in real-time", zh="实时打印输出"
-        ),
-        "print_progress": Description(
-            en="Print progress information", zh="打印进度信息"
-        ),
-        "language": Description(
-            en="Language code (e.g., auto, en, zh)", zh="语言代码（如 auto、en、zh）"
-        ),
+        "model_name": Description(i18n_key="config.asr.whisper_cpp.model_name"),
+        "model_dir": Description(i18n_key="config.asr.whisper_cpp.model_dir"),
+        "print_realtime": Description(i18n_key="config.asr.whisper_cpp.print_realtime"),
+        "print_progress": Description(i18n_key="config.asr.whisper_cpp.print_progress"),
+        "language": Description(i18n_key="config.asr.whisper_cpp.language"),
+        "prompt": Description(i18n_key="config.asr.whisper_cpp.prompt"),
     }
 
 
@@ -92,15 +66,13 @@ class WhisperConfig(I18nMixin):
     name: str = Field(..., alias="name")
     download_root: str = Field(..., alias="download_root")
     device: Literal["cpu", "cuda"] = Field("cpu", alias="device")
+    prompt: str = Field("", alias="prompt")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "name": Description(en="Name of the Whisper model", zh="Whisper 模型名称"),
-        "download_root": Description(
-            en="Root directory for downloading models", zh="模型下载根目录"
-        ),
-        "device": Description(
-            en="Device to use for inference (cpu or cuda)", zh="推理设备（cpu 或 cuda）"
-        ),
+        "name": Description(i18n_key="config.asr.whisper.name"),
+        "download_root": Description(i18n_key="config.asr.whisper.download_root"),
+        "device": Description(i18n_key="config.asr.whisper.device"),
+        "prompt": Description(i18n_key="config.asr.whisper.prompt"),
     }
 
 
@@ -118,32 +90,15 @@ class FunASRConfig(I18nMixin):
     language: str = Field("auto", alias="language")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "model_name": Description(en="Name of the FunASR model", zh="FunASR 模型名称"),
-        "vad_model": Description(
-            en="Voice Activity Detection model", zh="语音活动检测模型"
-        ),
-        "punc_model": Description(en="Punctuation model", zh="标点符号模型"),
-        "device": Description(
-            en="Device to use for inference (cpu or cuda)", zh="推理设备（cpu 或 cuda）"
-        ),
-        "disable_update": Description(
-            en="Disable checking for FunASR updates on launch",
-            zh="启动时禁用 FunASR 更新检查",
-        ),
-        "ncpu": Description(
-            en="Number of CPU threads for internal operations",
-            zh="内部操作的 CPU 线程数",
-        ),
-        "hub": Description(
-            en="Model hub to use (ms for ModelScope, hf for Hugging Face)",
-            zh="使用的模型仓库（ms 为 ModelScope，hf 为 Hugging Face）",
-        ),
-        "use_itn": Description(
-            en="Enable inverse text normalization", zh="启用反向文本归一化"
-        ),
-        "language": Description(
-            en="Language code (e.g., auto, zh, en)", zh="语言代码（如 auto、zh、en）"
-        ),
+        "model_name": Description(i18n_key="config.asr.funasr.model_name"),
+        "vad_model": Description(i18n_key="config.asr.funasr.vad_model"),
+        "punc_model": Description(i18n_key="config.asr.funasr.punc_model"),
+        "device": Description(i18n_key="config.asr.funasr.device"),
+        "disable_update": Description(i18n_key="config.asr.funasr.disable_update"),
+        "ncpu": Description(i18n_key="config.asr.funasr.ncpu"),
+        "hub": Description(i18n_key="config.asr.funasr.hub"),
+        "use_itn": Description(i18n_key="config.asr.funasr.use_itn"),
+        "language": Description(i18n_key="config.asr.funasr.language"),
     }
 
 
@@ -155,17 +110,9 @@ class GroqWhisperASRConfig(I18nMixin):
     lang: Optional[str] = Field(None, alias="lang")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "api_key": Description(
-            en="API key for Groq Whisper ASR", zh="Groq Whisper ASR 的 API 密钥"
-        ),
-        "model": Description(
-            en="Name of the Groq Whisper model to use",
-            zh="要使用的 Groq Whisper 模型名称",
-        ),
-        "lang": Description(
-            en="Language code (leave empty for auto-detect)",
-            zh="语言代码（留空以自动检测）",
-        ),
+        "api_key": Description(i18n_key="config.asr.groq.api_key"),
+        "model": Description(i18n_key="config.asr.groq.model"),
+        "lang": Description(i18n_key="config.asr.groq.lang"),
     }
 
 
@@ -197,87 +144,51 @@ class SherpaOnnxASRConfig(I18nMixin):
     provider: Literal["cpu", "cuda", "rocm"] = Field("cpu", alias="provider")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "model_type": Description(
-            en="Type of ASR model to use", zh="要使用的 ASR 模型类型"
-        ),
-        "encoder": Description(
-            en="Path to encoder model (for transducer)",
-            zh="编码器模型路径（用于 transducer）",
-        ),
-        "decoder": Description(
-            en="Path to decoder model (for transducer)",
-            zh="解码器模型路径（用于 transducer）",
-        ),
-        "joiner": Description(
-            en="Path to joiner model (for transducer)",
-            zh="连接器模型路径（用于 transducer）",
-        ),
-        "paraformer": Description(
-            en="Path to paraformer model", zh="Paraformer 模型路径"
-        ),
-        "nemo_ctc": Description(en="Path to NeMo CTC model", zh="NeMo CTC 模型路径"),
-        "wenet_ctc": Description(en="Path to WeNet CTC model", zh="WeNet CTC 模型路径"),
-        "tdnn_model": Description(en="Path to TDNN model", zh="TDNN 模型路径"),
-        "whisper_encoder": Description(
-            en="Path to Whisper encoder model", zh="Whisper 编码器模型路径"
-        ),
-        "whisper_decoder": Description(
-            en="Path to Whisper decoder model", zh="Whisper 解码器模型路径"
-        ),
-        "sense_voice": Description(
-            en="Path to SenseVoice model", zh="SenseVoice 模型路径"
-        ),
-        "tokens": Description(en="Path to tokens file", zh="词元文件路径"),
-        "num_threads": Description(en="Number of threads to use", zh="使用的线程数"),
-        "use_itn": Description(
-            en="Enable inverse text normalization", zh="启用反向文本归一化"
-        ),
-        "provider": Description(
-            en="Provider for inference (cpu or cuda) (cuda option needs additional settings. Please check our docs)",
-            zh="推理平台（cpu 或 cuda）(cuda 需要额外配置，请参考文档)",
-        ),
+        "model_type": Description(i18n_key="config.asr.sherpa_onnx.model_type"),
+        "encoder": Description(i18n_key="config.asr.sherpa_onnx.encoder"),
+        "decoder": Description(i18n_key="config.asr.sherpa_onnx.decoder"),
+        "joiner": Description(i18n_key="config.asr.sherpa_onnx.joiner"),
+        "paraformer": Description(i18n_key="config.asr.sherpa_onnx.paraformer"),
+        "nemo_ctc": Description(i18n_key="config.asr.sherpa_onnx.nemo_ctc"),
+        "wenet_ctc": Description(i18n_key="config.asr.sherpa_onnx.wenet_ctc"),
+        "tdnn_model": Description(i18n_key="config.asr.sherpa_onnx.tdnn_model"),
+        "whisper_encoder": Description(i18n_key="config.asr.sherpa_onnx.whisper_encoder"),
+        "whisper_decoder": Description(i18n_key="config.asr.sherpa_onnx.whisper_decoder"),
+        "sense_voice": Description(i18n_key="config.asr.sherpa_onnx.sense_voice"),
+        "tokens": Description(i18n_key="config.asr.sherpa_onnx.tokens"),
+        "num_threads": Description(i18n_key="config.asr.sherpa_onnx.num_threads"),
+        "use_itn": Description(i18n_key="config.asr.sherpa_onnx.use_itn"),
+        "provider": Description(i18n_key="config.asr.sherpa_onnx.provider"),
     }
 
     @model_validator(mode="after")
     def check_model_paths(cls, values: "SherpaOnnxASRConfig", info: ValidationInfo):
         model_type = values.model_type
-
         if model_type == "transducer":
-            if not all([values.encoder, values.decoder, values.joiner, values.tokens]):
+            if not values.encoder or not values.decoder or not values.joiner:
                 raise ValueError(
-                    "encoder, decoder, joiner, and tokens must be provided for transducer model type"
+                    "For transducer model type, encoder, decoder, and joiner paths are required"
                 )
         elif model_type == "paraformer":
-            if not all([values.paraformer, values.tokens]):
-                raise ValueError(
-                    "paraformer and tokens must be provided for paraformer model type"
-                )
+            if not values.paraformer:
+                raise ValueError("For paraformer model type, paraformer path is required")
         elif model_type == "nemo_ctc":
-            if not all([values.nemo_ctc, values.tokens]):
-                raise ValueError(
-                    "nemo_ctc and tokens must be provided for nemo_ctc model type"
-                )
+            if not values.nemo_ctc:
+                raise ValueError("For nemo_ctc model type, nemo_ctc path is required")
         elif model_type == "wenet_ctc":
-            if not all([values.wenet_ctc, values.tokens]):
+            if not values.wenet_ctc:
+                raise ValueError("For wenet_ctc model type, wenet_ctc path is required")
+        elif model_type == "whisper":
+            if not values.whisper_encoder or not values.whisper_decoder:
                 raise ValueError(
-                    "wenet_ctc and tokens must be provided for wenet_ctc model type"
+                    "For whisper model type, whisper_encoder and whisper_decoder paths are required"
                 )
         elif model_type == "tdnn_ctc":
-            if not all([values.tdnn_model, values.tokens]):
-                raise ValueError(
-                    "tdnn_model and tokens must be provided for tdnn_ctc model type"
-                )
-        elif model_type == "whisper":
-            if not all([values.whisper_encoder, values.whisper_decoder, values.tokens]):
-                raise ValueError(
-                    "whisper_encoder, whisper_decoder, and tokens must be provided for whisper model type"
-                )
+            if not values.tdnn_model:
+                raise ValueError("For tdnn_ctc model type, tdnn_model path is required")
         elif model_type == "sense_voice":
-            if not all([values.sense_voice, values.tokens]):
-                raise ValueError(
-                    "sense_voice and tokens must be provided for sense_voice model type"
-                )
-
+            if not values.sense_voice:
+                raise ValueError("For sense_voice model type, sense_voice path is required")
         return values
 
 
@@ -306,44 +217,31 @@ class ASRConfig(I18nMixin):
     )
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "asr_model": Description(
-            en="Speech-to-text model to use", zh="要使用的语音识别模型"
-        ),
-        "azure_asr": Description(en="Configuration for Azure ASR", zh="Azure ASR 配置"),
-        "faster_whisper": Description(
-            en="Configuration for Faster Whisper", zh="Faster Whisper 配置"
-        ),
-        "whisper_cpp": Description(
-            en="Configuration for WhisperCPP", zh="WhisperCPP 配置"
-        ),
-        "whisper": Description(en="Configuration for Whisper", zh="Whisper 配置"),
-        "fun_asr": Description(en="Configuration for FunASR", zh="FunASR 配置"),
-        "groq_whisper_asr": Description(
-            en="Configuration for Groq Whisper ASR", zh="Groq Whisper ASR 配置"
-        ),
-        "sherpa_onnx_asr": Description(
-            en="Configuration for Sherpa Onnx ASR", zh="Sherpa Onnx ASR 配置"
-        ),
+        "asr_model": Description(i18n_key="config.asr.asr_model"),
+        "azure_asr": Description(i18n_key="config.asr.azure_asr"),
+        "faster_whisper": Description(i18n_key="config.asr.faster_whisper"),
+        "whisper_cpp": Description(i18n_key="config.asr.whisper_cpp"),
+        "whisper": Description(i18n_key="config.asr.whisper"),
+        "fun_asr": Description(i18n_key="config.asr.fun_asr"),
+        "groq_whisper_asr": Description(i18n_key="config.asr.groq_whisper_asr"),
+        "sherpa_onnx_asr": Description(i18n_key="config.asr.sherpa_onnx_asr"),
     }
 
     @model_validator(mode="after")
     def check_asr_config(cls, values: "ASRConfig", info: ValidationInfo):
         asr_model = values.asr_model
-
-        # Only validate the selected ASR model
-        if asr_model == "AzureASR" and values.azure_asr is not None:
-            values.azure_asr.model_validate(values.azure_asr.model_dump())
-        elif asr_model == "Faster-Whisper" and values.faster_whisper is not None:
-            values.faster_whisper.model_validate(values.faster_whisper.model_dump())
-        elif asr_model == "WhisperCPP" and values.whisper_cpp is not None:
-            values.whisper_cpp.model_validate(values.whisper_cpp.model_dump())
-        elif asr_model == "Whisper" and values.whisper is not None:
-            values.whisper.model_validate(values.whisper.model_dump())
-        elif asr_model == "FunASR" and values.fun_asr is not None:
-            values.fun_asr.model_validate(values.fun_asr.model_dump())
-        elif asr_model == "GroqWhisperASR" and values.groq_whisper_asr is not None:
-            values.groq_whisper_asr.model_validate(values.groq_whisper_asr.model_dump())
-        elif asr_model == "SherpaOnnxASR" and values.sherpa_onnx_asr is not None:
-            values.sherpa_onnx_asr.model_validate(values.sherpa_onnx_asr.model_dump())
-
+        if asr_model == "azure_asr" and not values.azure_asr:
+            raise ValueError("Azure ASR configuration is required when using azure_asr")
+        elif asr_model == "faster_whisper" and not values.faster_whisper:
+            raise ValueError("Faster Whisper configuration is required when using faster_whisper")
+        elif asr_model == "whisper_cpp" and not values.whisper_cpp:
+            raise ValueError("WhisperCPP configuration is required when using whisper_cpp")
+        elif asr_model == "whisper" and not values.whisper:
+            raise ValueError("Whisper configuration is required when using whisper")
+        elif asr_model == "fun_asr" and not values.fun_asr:
+            raise ValueError("FunASR configuration is required when using fun_asr")
+        elif asr_model == "groq_whisper_asr" and not values.groq_whisper_asr:
+            raise ValueError("Groq Whisper ASR configuration is required when using groq_whisper_asr")
+        elif asr_model == "sherpa_onnx_asr" and not values.sherpa_onnx_asr:
+            raise ValueError("Sherpa Onnx ASR configuration is required when using sherpa_onnx_asr")
         return values

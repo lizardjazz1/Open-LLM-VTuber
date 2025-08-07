@@ -65,6 +65,14 @@ class TTSTaskManager:
         logger.debug(
             f"🏃Queuing TTS task for: '''{tts_text}''' (by {display_text.name})"
         )
+        
+        # Log voice commands for debugging
+        if '{rate:' in tts_text or '{volume:' in tts_text or '{pitch:' in tts_text:
+            logger.info(f"🎵 Voice commands detected in tts_manager: {tts_text}")
+        elif '[neutral]' in tts_text or '[joy]' in tts_text or '[smile]' in tts_text or '[laugh]' in tts_text or '[anger]' in tts_text or '[disgust]' in tts_text or '[fear]' in tts_text or '[sadness]' in tts_text or '[surprise]' in tts_text or '[confused]' in tts_text or '[thinking]' in tts_text or '[excited]' in tts_text or '[shy]' in tts_text or '[wink]' in tts_text:
+            logger.info(f"😊 Emotion commands detected in tts_manager: {tts_text}")
+        else:
+            logger.debug(f"🔍 No voice or emotion commands in tts_manager: {tts_text}")
 
         # Get current sequence number
         current_sequence = self._sequence_counter
@@ -166,6 +174,15 @@ class TTSTaskManager:
     async def _generate_audio(self, tts_engine: TTSInterface, text: str) -> str:
         """Generate audio file from text"""
         logger.debug(f"🏃Generating audio for '''{text}'''...")
+        
+        # Add logging for voice commands
+        if '{rate:' in text or '{volume:' in text or '{pitch:' in text:
+            logger.info(f"🎵 Voice commands detected in _generate_audio: {text}")
+        elif '[neutral]' in text or '[joy]' in text or '[smile]' in text or '[laugh]' in text or '[anger]' in text or '[disgust]' in text or '[fear]' in text or '[sadness]' in text or '[surprise]' in text or '[confused]' in text or '[thinking]' in text or '[excited]' in text or '[shy]' in text or '[wink]' in text:
+            logger.info(f"😊 Emotion commands detected in _generate_audio: {text}")
+        else:
+            logger.debug(f"🔍 No voice or emotion commands in _generate_audio: {text}")
+            
         return await tts_engine.async_generate_audio(
             text=text,
             file_name_no_ext=f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}",

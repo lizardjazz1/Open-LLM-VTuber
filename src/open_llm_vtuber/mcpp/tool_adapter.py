@@ -30,57 +30,47 @@ class ToolAdapter:
 
         logger.debug(f"MC: Fetching tool info for enabled servers: {enabled_servers}")
 
-        # Use a single client instance for efficiency
+        # Create a new MCPClient for tool fetching
         async with MCPClient(self.server_registery) as client:
             for server_name in enabled_servers:
-                if server_name not in self.server_registery.servers:
-                    logger.warning(
-                        f"MC: Enabled server '{server_name}' not found in Server Manager. Skipping."
-                    )
+                try:
+                    logger.debug(f"MC: Fetching tools from server '{server_name}'...")
+                    tools = await client.list_tools(server_name)
+                    
+                    # Initialize server info
+                    servers_info[server_name] = {}
+                    
+                    # Format tools for this server
+                    for tool in tools:
+                        formatted_tool = self._format_tool(tool, server_name)
+                        # Use tool.name as the key
+                        formatted_tools[tool.name] = formatted_tool
+                        
+                        # Add tool info to servers_info
+                        servers_info[server_name][tool.name] = {
+                            "description": tool.description,
+                            "parameters": tool.inputSchema.get("properties", {}),
+                            "required": tool.inputSchema.get("required", [])
+                        }
+                        
+                    logger.debug(f"MC: Successfully fetched {len(tools)} tools from server '{server_name}'")
+                    
+                except Exception as e:
+                    logger.error(f"MC: Failed to fetch tools from server '{server_name}': {e}")
                     continue
 
-                try:
-                    servers_info[server_name] = {}
-                    tools = await client.list_tools(server_name)
-                    logger.debug(
-                        f"MC: Found {len(tools)} tools on server '{server_name}'"
-                    )
-                    for tool in tools:
-                        servers_info[server_name][tool.name] = {}
-                        tool_info = servers_info[server_name][tool.name]
-                        tool_info["description"] = tool.description
-                        tool_info["parameters"] = tool.inputSchema.get("properties", {})
-                        tool_info["required"] = tool.inputSchema.get("required", [])
-
-                        # Store the tool info in FormattedTool format
-                        formatted_tools[tool.name] = FormattedTool(
-                            input_schema=tool.inputSchema,
-                            related_server=server_name,
-                            description=tool.description,
-                            # Generic schema will be generated later if needed
-                            generic_schema=None,
-                        )
-                except (ValueError, RuntimeError, ConnectionError) as e:
-                    logger.error(
-                        f"MC: Failed to get info for server '{server_name}': {e}"
-                    )
-                    if (
-                        server_name not in servers_info
-                    ):  # Ensure entry exists even on error
-                        servers_info[server_name] = {}
-                    continue  # Continue to next server
-                except Exception as e:
-                    logger.error(
-                        f"MC: Unexpected error for server '{server_name}': {e}"
-                    )
-                    if server_name not in servers_info:
-                        servers_info[server_name] = {}
-                    continue  # Continue to next server
-
-        logger.debug(
-            f"MC: Finished fetching tool info. Found {len(formatted_tools)} tools across enabled servers."
-        )
+        logger.info(f"MC: Total tools fetched: {len(formatted_tools)}")
         return servers_info, formatted_tools
+
+    def _format_tool(self, tool: Any, server_name: str) -> FormattedTool:
+        """Formats a single tool into a FormattedTool object."""
+        return FormattedTool(
+            input_schema=tool.inputSchema,
+            related_server=server_name,
+            description=tool.description,
+            # Generic schema will be generated later if needed
+            generic_schema=None,
+        )
 
     def construct_mcp_prompt_string(
         self, servers_info: Dict[str, Dict[str, str]]
@@ -226,7 +216,47 @@ class ToolAdapter:
         servers_info, formatted_tools_dict = await self.get_server_and_tool_info(
             enabled_servers
         )
+        
+        # Добавляем детальное логирование серверов и инструментов
+        logger.info(f"MC: Servers info: {list(servers_info.keys())}")
+        if formatted_tools_dict:
+            tool_names = list(formatted_tools_dict.keys())
+            logger.info(f"MC: Available tools: {tool_names}")
+        else:
+            logger.warning("MC: No tools found from any enabled servers.")
+
+        # Construct MCP prompt string using servers_info
         mcp_prompt_string = self.construct_mcp_prompt_string(servers_info)
-        openai_tools, claude_tools = self.format_tools_for_api(formatted_tools_dict)
-        logger.info("MC: Dynamic tool construction complete.")
+
+        # Format tools for OpenAI and Claude
+        openai_tools = []
+        claude_tools = []
+
+        for tool_name, formatted_tool in formatted_tools_dict.items():
+            # OpenAI format
+            openai_tool = {
+                "type": "function",
+                "function": {
+                    "name": tool_name,
+                    "description": formatted_tool.description,
+                    "parameters": formatted_tool.input_schema,
+                },
+            }
+            openai_tools.append(openai_tool)
+
+            # Claude format (same as OpenAI for now)
+            claude_tool = {
+                "type": "function",
+                "function": {
+                    "name": tool_name,
+                    "description": formatted_tool.description,
+                    "parameters": formatted_tool.input_schema,
+                },
+            }
+            claude_tools.append(claude_tool)
+
+        logger.info(
+            f"MC: Successfully formatted {len(openai_tools)} tools for OpenAI and {len(claude_tools)} for Claude."
+        )
+
         return mcp_prompt_string, openai_tools, claude_tools
