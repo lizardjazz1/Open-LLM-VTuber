@@ -120,14 +120,15 @@ async def process_single_conversation(
 
         # Retrieve relevant long-term memory snippets (if available)
         try:
+            mem = context.vtuber_memory_service or context.memory_service
             if (
                 context.memory_enabled
-                and context.memory_service
-                and context.memory_service.enabled
+                and mem
+                and getattr(mem, "enabled", False)
                 and input_text
             ):
                 # Новый поиск релевантных воспоминаний с коррекцией самоссылки
-                hits = context.memory_service.get_relevant_memories(
+                hits = mem.get_relevant_memories(
                     query=input_text,
                     conf_uid=context.character_config.conf_uid,
                     limit=getattr(context, "memory_top_k", 4),
@@ -230,29 +231,27 @@ async def process_single_conversation(
                                 apply_adjust = True
 
                             if apply_adjust:
-                                text = (
-                                    context.memory_service.adjust_context_for_speaker(
-                                        memory_text=text,
-                                        memory_kind=kind,
-                                        speaker="NEYRI",
-                                        current_user_name=effective_from_name,
-                                        character_name=str(
-                                            getattr(
-                                                context.character_config,
-                                                "character_name",
-                                                "Нейри",
-                                            )
-                                            or "Нейри"
-                                        ),
-                                        character_gender=str(
-                                            getattr(
-                                                context.character_config,
-                                                "character_gender",
-                                                "female",
-                                            )
-                                            or "female"
-                                        ),
-                                    )
+                                text = mem.adjust_context_for_speaker(
+                                    memory_text=text,
+                                    memory_kind=kind,
+                                    speaker="NEYRI",
+                                    current_user_name=effective_from_name,
+                                    character_name=str(
+                                        getattr(
+                                            context.character_config,
+                                            "character_name",
+                                            "Нейри",
+                                        )
+                                        or "Нейри"
+                                    ),
+                                    character_gender=str(
+                                        getattr(
+                                            context.character_config,
+                                            "character_gender",
+                                            "female",
+                                        )
+                                        or "female"
+                                    ),
                                 )
                         except Exception:
                             pass
@@ -281,7 +280,8 @@ async def process_single_conversation(
 
             # Классификация и сохранение пользовательского ввода в долгосрочную память
             try:
-                if context.memory_service and context.memory_service.enabled:
+                mem = context.vtuber_memory_service or context.memory_service
+                if mem and getattr(mem, "enabled", False):
                     kind = determine_memory_kind(
                         text=input_text,
                         speaker="USER",
@@ -297,7 +297,7 @@ async def process_single_conversation(
                         tags=extract_tags(input_text),
                         emotion=detect_emotion(input_text),
                     )
-                    context.memory_service.add_memory(item)
+                    mem.add_memory(item)
             except Exception as e:
                 logger.debug(f"User memory add skipped: {e}")
 
@@ -396,7 +396,8 @@ async def process_single_conversation(
 
             # Upsert key facts to long-term memory (very lightweight rule)
             try:
-                if context.memory_service and context.memory_service.enabled:
+                mem = context.vtuber_memory_service or context.memory_service
+                if mem and getattr(mem, "enabled", False):
                     # naive fact extraction: split by sentences; take short lines
                     import re
 
@@ -421,7 +422,7 @@ async def process_single_conversation(
                             sentences.append(clean)
                     top = sentences[:5]
                     if top:
-                        context.memory_service.add_facts(
+                        mem.add_facts(
                             top,
                             context.character_config.conf_uid,
                             context.history_uid,

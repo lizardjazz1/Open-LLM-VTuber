@@ -1341,6 +1341,15 @@ wheels = [
 ]
 
 [[package]]
+name = "memgpt"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/37/04/b608c9617d29a7d0cb0239e3c9f3683fbebc92e55133a105b55980e187e1/memgpt-0.2.0.tar.gz", hash = "sha256:0495384e5f3f56276da5f39823de4fa046f58c797bc0d400ef642590da0345f2", size = 6735 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/29/eaf1e51f93a988af207a695a69765a4e0555c55d351df1ea4f5b3cb3bbd5/memgpt-0.2.0-py3-none-any.whl", hash = "sha256:70d2bb1211cb6641ae5c447304701c5c753b7b8854554281fef96adf069760f5", size = 8115 },
+]
+
+[[package]]
 name = "mmh3"
 version = "5.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1713,6 +1722,7 @@ dependencies = [
     { name = "loguru" },
     { name = "mcp", extra = ["cli"] },
     { name = "mcp-server-time" },
+    { name = "memgpt" },
     { name = "numpy" },
     { name = "ollama" },
     { name = "onnxruntime" },
@@ -1768,6 +1778,7 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.7.2" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.6.0" },
     { name = "mcp-server-time", specifier = ">=2025.8.4" },
+    { name = "memgpt", specifier = ">=0.2.0" },
     { name = "numpy", specifier = ">=1.26.4,<2" },
     { name = "ollama", specifier = ">=0.1.7" },
     { name = "onnxruntime", specifier = ">=1.20.1" },

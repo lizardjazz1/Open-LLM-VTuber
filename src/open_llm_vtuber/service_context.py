@@ -471,11 +471,8 @@ class ServiceContext:
     async def trigger_memory_consolidation(self, reason: str = "manual") -> None:
         """Summarize last N messages and write categorized memory entries (facts/events/beliefs/objectives)."""
         try:
-            if not (
-                self.agent_engine
-                and self.memory_service
-                and self.memory_service.enabled
-            ):
+            mem = self.vtuber_memory_service or self.memory_service
+            if not (self.agent_engine and mem and getattr(mem, "enabled", False)):
                 return
             # ensure history exists
             if not self.history_uid:
@@ -572,7 +569,7 @@ class ServiceContext:
             # key_facts
             push_all(summary.get("key_facts"), "KeyFacts")
             if entries:
-                added = self.memory_service.add_facts_with_meta(
+                added = mem.add_facts_with_meta(
                     entries,
                     self.character_config.conf_uid,
                     self.history_uid,
@@ -615,11 +612,8 @@ class ServiceContext:
         Возвращает число сохранённых элементов в память.
         """
         try:
-            if not (
-                self.agent_engine
-                and self.memory_service
-                and self.memory_service.enabled
-            ):
+            mem = self.vtuber_memory_service or self.memory_service
+            if not (self.agent_engine and mem and getattr(mem, "enabled", False)):
                 return 0
             if not history_uid:
                 return 0
@@ -685,7 +679,7 @@ class ServiceContext:
 
             if not entries:
                 return 0
-            added = self.memory_service.add_facts_with_meta(
+            added = mem.add_facts_with_meta(
                 entries,
                 self.character_config.conf_uid,
                 history_uid,
@@ -1171,7 +1165,10 @@ class ServiceContext:
                 self.agent_engine and hasattr(self.agent_engine, "analyze_sentiment")
             ):
                 return
-            if not (self.memory_service and self.memory_service.enabled):
+            mem = self.vtuber_memory_service or self.memory_service
+            if not (
+                self.memory_service and getattr(self.memory_service, "enabled", False)
+            ):
                 pass  # we still can track in RAM
             # Call agent's analyzer
             result = await self.agent_engine.analyze_sentiment(text)  # type: ignore[attr-defined]
@@ -1196,7 +1193,8 @@ class ServiceContext:
             except Exception:
                 pass
             # Persist as emotional memory
-            if self.memory_service and self.memory_service.enabled:
+            mem = self.vtuber_memory_service or self.memory_service
+            if mem and getattr(mem, "enabled", False):
                 entry = {
                     "text": f"[emotion:user:{user}] {label}={new_score:.3f}",
                     "kind": "Emotions",
@@ -1204,7 +1202,7 @@ class ServiceContext:
                     "tags": ["twitch", f"user:{user}"],
                 }
                 try:
-                    self.memory_service.add_facts_with_meta(
+                    mem.add_facts_with_meta(
                         [entry],
                         self.character_config.conf_uid,
                         self.history_uid,
