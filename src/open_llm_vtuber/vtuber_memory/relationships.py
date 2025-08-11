@@ -3,7 +3,6 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from loguru import logger
 
@@ -111,4 +110,4 @@ class RelationshipsDB:
                         (user_id, username),
                     )
         except Exception as e:
-            logger.error(f"set_username failed: {e}") 
+            logger.error(f"set_username failed: {e}")

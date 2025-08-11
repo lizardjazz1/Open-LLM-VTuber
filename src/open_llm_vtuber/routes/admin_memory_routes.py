@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -99,4 +99,4 @@ async def relationship_update(
         out["affection"] = db.adjust_affection(req.user_id, req.delta)
     else:
         out["affection"] = db.get_affection(req.user_id)
-    return out 
+    return out

@@ -38,6 +38,9 @@ system_config:
     # speakable_prompt: 'speakable_prompt'
     # Additional guidance for LLM on how to use tools
     # tool_guidance_prompt: 'tool_guidance_prompt' 
+  # Memory module
+  relationships_db_path: 'cache/relationships.sqlite3'
+  memory_consolidation_interval_sec: 900
 
 # configuration for the default character
 character_config:

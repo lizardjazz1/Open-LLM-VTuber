@@ -34,6 +34,18 @@ class SystemConfig(I18nMixin):
     # // DEBUG: [FIXED] Token for /logs auth | Ref: 4,15
     logging_token: Optional[str] = Field("", alias="logging_token")
 
+    # Memory module settings
+    relationships_db_path: str = Field(
+        default="cache/relationships.sqlite3",
+        alias="relationships_db_path",
+        description="Filesystem path to SQLite DB storing user relationships.",
+    )
+    memory_consolidation_interval_sec: int = Field(
+        default=900,
+        alias="memory_consolidation_interval_sec",
+        description="Periodic consolidation interval in seconds (>=60).",
+    )
+
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "conf_version": Description(i18n_key="config.conf_version"),
         "host": Description(i18n_key="config.host"),
@@ -45,6 +57,10 @@ class SystemConfig(I18nMixin):
         "twitch_config": Description(i18n_key="config.twitch_config"),
         "tool_prompts": Description(i18n_key="config.tool_prompts"),
         "logging_token": Description(i18n_key="config.logging_token"),
+        "relationships_db_path": Description(i18n_key="config.relationships_db_path"),
+        "memory_consolidation_interval_sec": Description(
+            i18n_key="config.memory_consolidation_interval_sec"
+        ),
     }
 
     @model_validator(mode="after")
@@ -52,4 +68,11 @@ class SystemConfig(I18nMixin):
         port = values.port
         if port < 0 or port > 65535:
             raise ValueError("Port must be between 0 and 65535")
+        # Clamp consolidation interval
+        try:
+            ival = int(values.memory_consolidation_interval_sec)
+            if ival < 60:
+                values.memory_consolidation_interval_sec = 60
+        except Exception:
+            values.memory_consolidation_interval_sec = 900
         return values

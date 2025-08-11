@@ -51,4 +51,4 @@ class ConsolidationScheduler:
             try:
                 await self._task
             except Exception:
-                pass 
+                pass

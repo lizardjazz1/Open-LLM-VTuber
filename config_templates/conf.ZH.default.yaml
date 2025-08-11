@@ -44,6 +44,9 @@ system_config:
     max_message_length: 300
     max_recent_messages: 10
   tool_prompts: {}
+  # 记忆模块
+  relationships_db_path: 'cache/relationships.sqlite3'
+  memory_consolidation_interval_sec: 900
 
 # 默认角色的配置
 character_config:
