@@ -3,8 +3,21 @@ system_config:
   conf_version: 'v1.2.0'
   host: 'localhost' # use 0.0.0.0 if you want other devices to access this page
   port: 12393
+  # Language setting for the application (e.g., 'en', 'ru', 'zh', 'jp', 'fr')
+  # Just add your language file to locales/ folder and set it here
+  language: 'en'
   # New setting for alternative configurations
   config_alts_dir: 'characters'
+  # Enable proxy mode for live platform integrations
+  enable_proxy: true
+  # Twitch integration settings
+  twitch_config:
+    enabled: false
+    channel_name: 'your_channel_name'
+    app_id: ''  # Get from https://dev.twitch.tv/console
+    app_secret: ''  # Get from https://dev.twitch.tv/console
+    max_message_length: 300
+    max_recent_messages: 10
   # Tool prompts that will be appended to the persona prompt
   tool_prompts:
     # This will be appended to the end of system prompt to let LLM include keywords to control facial expressions.
@@ -427,8 +440,8 @@ character_config:
     silero_vad:
       orig_sr: 16000 # Original Audio Sample Rate
       target_sr: 16000 # Target Audio Sample Rate
-      prob_threshold: 0.4 # Probability Threshold for VAD
-      db_threshold: 60 # Decibel Threshold for VAD
+      prob_threshold: 0.4 # Probability Threshold for VAD (можно увеличить до 0.5 для предотвращения эхо)
+      db_threshold: 60 # Decibel Threshold for VAD (можно увеличить до 65 для предотвращения эхо)
       required_hits: 3 # Number of consecutive hits required to consider speech
       required_misses: 24 # Number of consecutive misses required to consider silence
       smoothing_window: 5 # Smoothing window size for VAD

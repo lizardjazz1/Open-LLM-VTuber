@@ -28,6 +28,15 @@ class ToolManager:
         logger.info(
             f"ToolManager initialized with {len(self._formatted_tools_openai)} OpenAI tools and {len(self._formatted_tools_claude)} Claude tools."
         )
+        
+        # Добавляем детальное логирование инструментов
+        if self._formatted_tools_openai:
+            openai_tool_names = [tool.get('function', {}).get('name', 'unknown') for tool in self._formatted_tools_openai]
+            logger.info(f"OpenAI tools available: {openai_tool_names}")
+        
+        if self._formatted_tools_claude:
+            claude_tool_names = [tool.get('function', {}).get('name', 'unknown') for tool in self._formatted_tools_claude]
+            logger.info(f"Claude tools available: {claude_tool_names}")
 
     def get_tool(self, tool_name: str) -> FormattedTool | None:
         """Get a tool's raw information by its name."""

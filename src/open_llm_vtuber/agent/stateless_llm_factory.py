@@ -39,6 +39,8 @@ class LLMFactory:
                 organization_id=kwargs.get("organization_id"),
                 project_id=kwargs.get("project_id"),
                 temperature=kwargs.get("temperature"),
+                use_harmony=kwargs.get("use_harmony", False),
+                max_tokens=kwargs.get("max_tokens", 150),
             )
         if llm_provider == "stateless_llm_with_template":
             return StatelessLLMWithTemplate(
@@ -59,6 +61,7 @@ class LLMFactory:
                 temperature=kwargs.get("temperature"),
                 keep_alive=kwargs.get("keep_alive"),
                 unload_at_exit=kwargs.get("unload_at_exit"),
+                use_harmony=kwargs.get("use_harmony", False),
             )
 
         elif llm_provider == "llama_cpp_llm":

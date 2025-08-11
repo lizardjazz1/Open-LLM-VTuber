@@ -1,7 +1,10 @@
 """MCP Client for Open-LLM-Vtuber."""
 
+import asyncio
+import json
 from contextlib import AsyncExitStack
-from typing import Dict, Any, List, Callable
+from typing import Any, Callable, Dict, List, Optional
+
 from loguru import logger
 from datetime import timedelta
 
@@ -10,6 +13,9 @@ from mcp.types import Tool
 from mcp.client.stdio import stdio_client
 
 from .server_registry import ServerRegistry
+
+# Import i18n system
+from ..i18n import t
 
 DEFAULT_TIMEOUT = timedelta(seconds=30)
 
@@ -38,7 +44,7 @@ class MCPClient:
             raise TypeError(
                 "MCPC: Invalid server manager. Must be an instance of ServerRegistry."
             )
-        logger.info("MCPC: Initialized MCPClient instance.")
+        logger.info(t("mcp.client_initialized"))
 
     async def _ensure_server_running_and_get_session(
         self, server_name: str
@@ -47,7 +53,7 @@ class MCPClient:
         if server_name in self.active_sessions:
             return self.active_sessions[server_name]
 
-        logger.info(f"MCPC: Starting and connecting to server '{server_name}'...")
+        logger.info(t("mcp.starting_connection", server=server_name))
         server = self.server_registery.get_server(server_name)
         if not server:
             raise ValueError(
@@ -74,10 +80,10 @@ class MCPClient:
             await session.initialize()
 
             self.active_sessions[server_name] = session
-            logger.info(f"MCPC: Successfully connected to server '{server_name}'.")
+            logger.info(t("mcp.connection_successful", server=server_name))
             return session
         except Exception as e:
-            logger.exception(f"MCPC: Failed to connect to server '{server_name}': {e}")
+            logger.exception(t("mcp.connection_failed", server=server_name, error=str(e)))
             raise RuntimeError(
                 f"MCPC: Failed to connect to server '{server_name}'."
             ) from e
@@ -109,7 +115,7 @@ class MCPClient:
             Dict containing the metadata and content_items from the tool response.
         """
         session = await self._ensure_server_running_and_get_session(server_name)
-        logger.info(f"MCPC: Calling tool '{tool_name}' on server '{server_name}'...")
+        logger.info(t("mcp.calling_tool", server=server_name, tool=tool_name))
         response = await session.call_tool(tool_name, tool_args)
 
         if response.isError:
@@ -118,7 +124,7 @@ class MCPClient:
                 if response.content and hasattr(response.content[0], "text")
                 else "Unknown server error"
             )
-            logger.error(f"MCPC: Error calling tool '{tool_name}': {error_text}")
+            logger.error(t("mcp.tool_error", server=server_name, tool=tool_name, error=error_text))
             # Return error information within the standard structure
             return {
                 "metadata": getattr(response, "metadata", {}),
@@ -143,9 +149,7 @@ class MCPClient:
                         item_dict[attr] = getattr(item, attr)
                 content_items.append(item_dict)
         else:
-            logger.warning(
-                f"MCPC: Tool '{tool_name}' returned no content. Returning empty content_items."
-            )
+            logger.warning(t("mcp.tool_no_content", server=server_name, tool=tool_name))
             content_items.append(
                 {"type": "text", "text": ""}
             )  # Ensure content_items is not empty
@@ -157,15 +161,27 @@ class MCPClient:
         return result
 
     async def aclose(self) -> None:
-        """Closes all active server connections."""
-        logger.info(
-            f"MCPC: Closing client instance and {len(self.active_sessions)} active connections..."
-        )
-        await self.exit_stack.aclose()
+        """Close all active sessions and clean up resources."""
+        logger.info(t("mcp.closing_connections", count=len(self.active_sessions)))
+        
+        # Close all active sessions
+        for server_name, session in self.active_sessions.items():
+            try:
+                await session.close()
+            except Exception as e:
+                logger.warning(t("mcp.session_close_error", server=server_name, error=str(e)))
+        
+        # Close the exit stack
+        try:
+            await self.exit_stack.aclose()
+        except Exception as e:
+            logger.warning(t("mcp.exit_stack_error", error=str(e)))
+        
+        # Clear active sessions
         self.active_sessions.clear()
-        self._list_tools_cache.clear()  # Clear cache on close
-        self.exit_stack = AsyncExitStack()
-        logger.info("MCPC: Client instance closed.")
+        self._list_tools_cache.clear()
+        
+        logger.info(t("mcp.client_closed"))
 
     async def __aenter__(self) -> "MCPClient":
         """Enter the async context manager."""

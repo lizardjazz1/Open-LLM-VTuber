@@ -1,22 +1,29 @@
 [
     {
         "name": "mao_pro",
-        "description": "",
+        "description": "Russian AI Assistant - Нейри",
         "url": "/live2d-models/mao_pro/runtime/mao_pro.model3.json",
         "kScale": 0.5,
         "initialXshift": 0,
         "initialYshift": 0,
         "kXOffset": 1150,
         "idleMotionGroupName": "Idle",
+        "defaultEmotion": 0,
         "emotionMap": {
             "neutral": 0,
+            "joy": 3,
+            "smile": 3,
+            "laugh": 3,
             "anger": 2,
             "disgust": 2,
             "fear": 1,
-            "joy": 3,
-            "smirk": 3,
             "sadness": 1,
-            "surprise": 3
+            "surprise": 3,
+            "confused": 1,
+            "thinking": 1,
+            "excited": 3,
+            "shy": 1,
+            "wink": 3
         },
         "tapMotions": {
             "HitAreaHead": {
@@ -24,7 +31,17 @@
             },
             "HitAreaBody": {
                 "": 1
+            },
+            "HitAreaFace": {
+                "": 1
             }
+        },
+        "motionGroups": {
+            "Idle": ["idle_01", "idle_02", "idle_03"],
+            "Greeting": ["greeting_01", "greeting_02"],
+            "Thinking": ["thinking_01", "thinking_02"],
+            "Excited": ["excited_01", "excited_02"],
+            "Shy": ["shy_01", "shy_02"]
         }
     }
 ]

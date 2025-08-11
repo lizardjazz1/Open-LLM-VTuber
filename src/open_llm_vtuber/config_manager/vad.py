@@ -16,25 +16,13 @@ class SileroVADConfig(I18nMixin):
     smoothing_window: int = Field(..., alias="smoothing_window")  # 5
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "orig_sr": Description(en="Original Audio Sample Rate", zh="原始音频采样率"),
-        "target_sr": Description(en="Target Audio Sample Rate", zh="目标音频采样率"),
-        "prob_threshold": Description(
-            en="Probability Threshold for VAD", zh="语音活动检测的概率阈值"
-        ),
-        "db_threshold": Description(
-            en="Decibel Threshold for VAD", zh="语音活动检测的分贝阈值"
-        ),
-        "required_hits": Description(
-            en="Number of consecutive hits required to consider speech",
-            zh="连续命中次数以确认语音",
-        ),
-        "required_misses": Description(
-            en="Number of consecutive misses required to consider silence",
-            zh="连续未命中次数以确认静音",
-        ),
-        "smoothing_window": Description(
-            en="Smoothing window size for VAD", zh="语音活动检测的平滑窗口大小"
-        ),
+        "orig_sr": Description(i18n_key="original_audio_sample_rate"),
+        "target_sr": Description(i18n_key="target_audio_sample_rate"),
+        "prob_threshold": Description(i18n_key="probability_threshold_for_vad"),
+        "db_threshold": Description(i18n_key="decibel_threshold_for_vad"),
+        "required_hits": Description(i18n_key="number_of_consecutive_hits_required_to_consider_speech"),
+        "required_misses": Description(i18n_key="number_of_consecutive_misses_required_to_consider_silence"),
+        "smoothing_window": Description(i18n_key="smoothing_window_size_for_vad"),
     }
 
 
@@ -45,12 +33,8 @@ class VADConfig(I18nMixin):
     silero_vad: Optional[SileroVADConfig] = Field(None, alias="silero_vad")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "vad_model": Description(
-            en="Voice Activity Detection model to use", zh="要使用的语音活动检测模型"
-        ),
-        "silero_vad": Description(
-            en="Configuration for Silero VAD", zh="Silero VAD 配置"
-        ),
+        "vad_model": Description(i18n_key="voice_activity_detection_model_to_use"),
+        "silero_vad": Description(i18n_key="configuration_for_silero_vad"),
     }
 
     @model_validator(mode="after")

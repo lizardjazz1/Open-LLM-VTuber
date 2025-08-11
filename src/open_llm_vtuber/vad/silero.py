@@ -14,8 +14,8 @@ from .vad_interface import VADInterface
 class SileroVADConfig(BaseModel):
     orig_sr: int = 16000
     target_sr: int = 16000
-    prob_threshold: float = 0.4
-    db_threshold: int = 60
+    prob_threshold: float = 0.4  # Можно увеличить до 0.5 для предотвращения эхо
+    db_threshold: int = 60  # Можно увеличить до 65 для предотвращения эхо
     required_hits: int = 3  # 3 * (0.032) = 0.1s
     required_misses: int = 24  # 24 * (0.032) = 0.8s
     smoothing_window: int = 5
@@ -26,8 +26,8 @@ class VADEngine(VADInterface):
         self,
         orig_sr: int = 16000,
         target_sr: int = 16000,
-        prob_threshold: float = 0.4,
-        db_threshold: int = 60,
+        prob_threshold: float = 0.4,  # Можно увеличить до 0.5 для предотвращения эхо
+        db_threshold: int = 60,  # Можно увеличить до 65 для предотвращения эхо
         required_hits: int = 3,
         required_misses: int = 24,
         smoothing_window: int = 5,

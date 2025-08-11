@@ -14,17 +14,11 @@ class AzureTTSConfig(I18nMixin):
     rate: str = Field(..., alias="rate")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "api_key": Description(
-            en="API key for Azure TTS service", zh="Azure TTS 服务的 API 密钥"
-        ),
-        "region": Description(
-            en="Azure region (e.g., eastus)", zh="Azure 区域（如 eastus）"
-        ),
-        "voice": Description(
-            en="Voice name to use for Azure TTS", zh="Azure TTS 使用的语音名称"
-        ),
-        "pitch": Description(en="Pitch adjustment percentage", zh="音高调整百分比"),
-        "rate": Description(en="Speaking rate adjustment", zh="语速调整"),
+        "api_key": Description(i18n_key="api_key_for_azure_tts_service"),
+        "region": Description(i18n_key="azure_region_eg_eastus"),
+        "voice": Description(i18n_key="voice_name_to_use_for_azure_tts"),
+        "pitch": Description(i18n_key="pitch_adjustment_percentage"),
+        "rate": Description(i18n_key="speaking_rate_adjustment"),
     }
 
 
@@ -34,9 +28,7 @@ class BarkTTSConfig(I18nMixin):
     voice: str = Field(..., alias="voice")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "voice": Description(
-            en="Voice name to use for Bark TTS", zh="Bark TTS 使用的语音名称"
-        ),
+        "voice": Description(i18n_key="voice_name_to_use_for_bark_tts"),
     }
 
 
@@ -44,12 +36,15 @@ class EdgeTTSConfig(I18nMixin):
     """Configuration for Edge TTS."""
 
     voice: str = Field(..., alias="voice")
+    rate: str = Field("+0%", alias="rate")
+    volume: str = Field("+0%", alias="volume")
+    pitch: str = Field("+0Hz", alias="pitch")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "voice": Description(
-            en="Voice name to use for Edge TTS (use 'edge-tts --list-voices' to list available voices)",
-            zh="Edge TTS 使用的语音名称（使用 'edge-tts --list-voices' 列出可用语音）",
-        ),
+        "voice": Description(i18n_key="voice_name_to_use_for_edge_tts_use_edge_tts_list_voices_to_list_available_voices"),
+        "rate": Description(i18n_key="speech_rate_adjustment_eg_10_10_0_limited_to_100_to_100"),
+        "volume": Description(i18n_key="volume_adjustment_eg_10_10_0"),
+        "pitch": Description(i18n_key="pitch_adjustment_in_hz_eg_10hz_10hz_0hz_limited_to_50hz_to_50hz"),
     }
 
 
@@ -67,23 +62,15 @@ class CosyvoiceTTSConfig(I18nMixin):
     api_name: str = Field(..., alias="api_name")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "client_url": Description(
-            en="URL of the CosyVoice Gradio web UI", zh="CosyVoice Gradio Web UI 的 URL"
-        ),
-        "mode_checkbox_group": Description(
-            en="Mode checkbox group value", zh="模式复选框组值"
-        ),
-        "sft_dropdown": Description(en="SFT dropdown value", zh="SFT 下拉框值"),
-        "prompt_text": Description(en="Prompt text", zh="提示文本"),
-        "prompt_wav_upload_url": Description(
-            en="URL for prompt WAV file upload", zh="提示音频文件上传 URL"
-        ),
-        "prompt_wav_record_url": Description(
-            en="URL for prompt WAV file recording", zh="提示音频文件录制 URL"
-        ),
-        "instruct_text": Description(en="Instruction text", zh="指令文本"),
-        "seed": Description(en="Random seed", zh="随机种子"),
-        "api_name": Description(en="API endpoint name", zh="API 端点名称"),
+        "client_url": Description(i18n_key="url_of_the_cosyvoice_gradio_web_ui"),
+        "mode_checkbox_group": Description(i18n_key="mode_checkbox_group_value"),
+        "sft_dropdown": Description(i18n_key="sft_dropdown_value"),
+        "prompt_text": Description(i18n_key="prompt_text"),
+        "prompt_wav_upload_url": Description(i18n_key="url_for_prompt_wav_file_upload"),
+        "prompt_wav_record_url": Description(i18n_key="url_for_prompt_wav_file_recording"),
+        "instruct_text": Description(i18n_key="instruction_text"),
+        "seed": Description(i18n_key="random_seed"),
+        "api_name": Description(i18n_key="api_endpoint_name"),
     }
 
 
@@ -103,25 +90,17 @@ class Cosyvoice2TTSConfig(I18nMixin):
     api_name: str = Field(..., alias="api_name")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "client_url": Description(
-            en="URL of the CosyVoice Gradio web UI", zh="CosyVoice Gradio Web UI 的 URL"
-        ),
-        "mode_checkbox_group": Description(
-            en="Mode checkbox group value", zh="模式复选框组值"
-        ),
-        "sft_dropdown": Description(en="SFT dropdown value", zh="SFT 下拉框值"),
-        "prompt_text": Description(en="Prompt text", zh="提示文本"),
-        "prompt_wav_upload_url": Description(
-            en="URL for prompt WAV file upload", zh="提示音频文件上传 URL"
-        ),
-        "prompt_wav_record_url": Description(
-            en="URL for prompt WAV file recording", zh="提示音频文件录制 URL"
-        ),
-        "instruct_text": Description(en="Instruction text", zh="指令文本"),
-        "stream": Description(en="Streaming inference", zh="流式推理"),
-        "seed": Description(en="Random seed", zh="随机种子"),
-        "speed": Description(en="Speech speed multiplier", zh="语速倍数"),
-        "api_name": Description(en="API endpoint name", zh="API 端点名称"),
+        "client_url": Description(i18n_key="url_of_the_cosyvoice_gradio_web_ui"),
+        "mode_checkbox_group": Description(i18n_key="mode_checkbox_group_value"),
+        "sft_dropdown": Description(i18n_key="sft_dropdown_value"),
+        "prompt_text": Description(i18n_key="prompt_text"),
+        "prompt_wav_upload_url": Description(i18n_key="url_for_prompt_wav_file_upload"),
+        "prompt_wav_record_url": Description(i18n_key="url_for_prompt_wav_file_recording"),
+        "instruct_text": Description(i18n_key="instruction_text"),
+        "stream": Description(i18n_key="streaming_inference"),
+        "seed": Description(i18n_key="random_seed"),
+        "speed": Description(i18n_key="speech_speed_multiplier"),
+        "api_name": Description(i18n_key="api_endpoint_name"),
     }
 
 
@@ -134,18 +113,10 @@ class MeloTTSConfig(I18nMixin):
     speed: float = Field(1.0, alias="speed")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "speaker": Description(
-            en="Speaker name (e.g., EN-Default, ZH)",
-            zh="说话人名称（如 EN-Default、ZH）",
-        ),
-        "language": Description(
-            en="Language code (e.g., EN, ZH)", zh="语言代码（如 EN、ZH）"
-        ),
-        "device": Description(
-            en="Device to use (auto, cpu, cuda, cuda:0, mps)",
-            zh="使用的设备（auto、cpu、cuda、cuda:0、mps）",
-        ),
-        "speed": Description(en="Speech speed multiplier", zh="语速倍数"),
+        "speaker": Description(i18n_key="speaker_name_eg_en_default_zh"),
+        "language": Description(i18n_key="language_code_eg_en_zh"),
+        "device": Description(i18n_key="device_to_use_for_inference_auto_cpu_cuda_or_mps"),
+        "speed": Description(i18n_key="speech_speed_10_is_normal_speed"),
     }
 
 
@@ -157,15 +128,9 @@ class XTTSConfig(I18nMixin):
     language: str = Field(..., alias="language")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "api_url": Description(
-            en="URL of the XTTS API endpoint", zh="XTTS API 端点的 URL"
-        ),
-        "speaker_wav": Description(
-            en="Speaker reference WAV file", zh="说话人参考音频文件"
-        ),
-        "language": Description(
-            en="Language code (e.g., en, zh)", zh="语言代码（如 en、zh）"
-        ),
+        "api_url": Description(i18n_key="url_of_the_xtts_api_endpoint"),
+        "speaker_wav": Description(i18n_key="speaker_reference_wav_file"),
+        "language": Description(i18n_key="language_code_eg_en_zh"),
     }
 
 
@@ -183,21 +148,15 @@ class GPTSoVITSConfig(I18nMixin):
     streaming_mode: str = Field(..., alias="streaming_mode")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "api_url": Description(
-            en="URL of the GPT-SoVITS API endpoint", zh="GPT-SoVITS API 端点的 URL"
-        ),
-        "text_lang": Description(en="Language of the input text", zh="输入文本的语言"),
-        "ref_audio_path": Description(
-            en="Path to reference audio file", zh="参考音频文件路径"
-        ),
-        "prompt_lang": Description(en="Language of the prompt", zh="提示词语言"),
-        "prompt_text": Description(en="Prompt text", zh="提示文本"),
-        "text_split_method": Description(
-            en="Method for splitting text", zh="文本分割方法"
-        ),
-        "batch_size": Description(en="Batch size for processing", zh="处理批次大小"),
-        "media_type": Description(en="Output media type", zh="输出媒体类型"),
-        "streaming_mode": Description(en="Enable streaming mode", zh="启用流式模式"),
+        "api_url": Description(i18n_key="url_of_the_gpt_sovits_api_endpoint"),
+        "text_lang": Description(i18n_key="language_of_the_input_text"),
+        "ref_audio_path": Description(i18n_key="path_to_reference_audio_file"),
+        "prompt_lang": Description(i18n_key="language_of_the_prompt"),
+        "prompt_text": Description(i18n_key="prompt_text"),
+        "text_split_method": Description(i18n_key="method_for_splitting_text"),
+        "batch_size": Description(i18n_key="batch_size_for_processing"),
+        "media_type": Description(i18n_key="output_media_type"),
+        "streaming_mode": Description(i18n_key="enable_streaming_mode"),
     }
 
 
@@ -210,19 +169,10 @@ class FishAPITTSConfig(I18nMixin):
     base_url: str = Field(..., alias="base_url")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "api_key": Description(
-            en="API key for Fish TTS service", zh="Fish TTS 服务的 API 密钥"
-        ),
-        "reference_id": Description(
-            en="Voice reference ID from Fish Audio website",
-            zh="来自 Fish Audio 网站的语音参考 ID",
-        ),
-        "latency": Description(
-            en="Latency mode (normal or balanced)", zh="延迟模式（normal 或 balanced）"
-        ),
-        "base_url": Description(
-            en="Base URL for Fish TTS API", zh="Fish TTS API 的基础 URL"
-        ),
+        "api_key": Description(i18n_key="api_key_for_fish_tts_api"),
+        "reference_id": Description(i18n_key="voice_reference_id_from_fish_audio_website"),
+        "latency": Description(i18n_key="latency_mode_normal_or_balanced"),
+        "base_url": Description(i18n_key="base_url_for_fish_tts_api"),
     }
 
 
@@ -235,20 +185,10 @@ class CoquiTTSConfig(I18nMixin):
     device: str = Field("", alias="device")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "model_name": Description(
-            en="Name of the TTS model to use", zh="要使用的 TTS 模型名称"
-        ),
-        "speaker_wav": Description(
-            en="Path to speaker WAV file for voice cloning",
-            zh="用于声音克隆的说话人音频文件路径",
-        ),
-        "language": Description(
-            en="Language code (e.g., en, zh)", zh="语言代码（如 en、zh）"
-        ),
-        "device": Description(
-            en="Device to use (cuda, cpu, or empty for auto)",
-            zh="使用的设备（cuda、cpu 或留空以自动选择）",
-        ),
+        "model_name": Description(i18n_key="name_of_the_coqui_tts_model_to_use"),
+        "speaker_wav": Description(i18n_key="path_to_speaker_wav_file_for_voice_cloning"),
+        "language": Description(i18n_key="language_code_eg_en_zh"),
+        "device": Description(i18n_key="device_to_use_for_inference_cpu_cuda_or_auto"),
     }
 
 
@@ -269,35 +209,18 @@ class SherpaOnnxTTSConfig(I18nMixin):
     debug: bool = Field(False, alias="debug")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "vits_model": Description(en="Path to VITS model file", zh="VITS 模型文件路径"),
-        "vits_lexicon": Description(
-            en="Path to lexicon file (optional)", zh="词典文件路径（可选）"
-        ),
-        "vits_tokens": Description(en="Path to tokens file", zh="词元文件路径"),
-        "vits_data_dir": Description(
-            en="Path to espeak-ng data directory (optional)",
-            zh="espeak-ng 数据目录路径（可选）",
-        ),
-        "vits_dict_dir": Description(
-            en="Path to Jieba dictionary directory (optional)",
-            zh="结巴词典目录路径（可选）",
-        ),
-        "tts_rule_fsts": Description(
-            en="Path to rule FSTs file (optional)", zh="规则 FST 文件路径（可选）"
-        ),
-        "max_num_sentences": Description(
-            en="Maximum number of sentences per batch", zh="每批次最大句子数"
-        ),
-        "sid": Description(
-            en="Speaker ID for multi-speaker models", zh="多说话人模型的说话人 ID"
-        ),
-        "provider": Description(
-            en="Computation provider (cpu, cuda, or coreml)",
-            zh="计算提供者（cpu、cuda 或 coreml）",
-        ),
-        "num_threads": Description(en="Number of computation threads", zh="计算线程数"),
-        "speed": Description(en="Speech speed multiplier", zh="语速倍数"),
-        "debug": Description(en="Enable debug mode", zh="启用调试模式"),
+        "vits_model": Description(i18n_key="path_to_vits_model_file"),
+        "vits_lexicon": Description(i18n_key="path_to_lexicon_file_optional"),
+        "vits_tokens": Description(i18n_key="path_to_tokens_file"),
+        "vits_data_dir": Description(i18n_key="path_to_espeak_ng_data_directory_optional"),
+        "vits_dict_dir": Description(i18n_key="path_to_jieba_dictionary_directory_optional_for_chinese"),
+        "tts_rule_fsts": Description(i18n_key="path_to_rule_fsts_file_optional"),
+        "max_num_sentences": Description(i18n_key="maximum_number_of_sentences_per_batch"),
+        "sid": Description(i18n_key="speaker_id_for_multi_speaker_models"),
+        "provider": Description(i18n_key="provider_for_inference_cpu_cuda_or_coreml"),
+        "num_threads": Description(i18n_key="number_of_computation_threads"),
+        "speed": Description(i18n_key="speech_speed_10_is_normal_speed"),
+        "debug": Description(i18n_key="enable_debug_mode"),
     }
 
 
@@ -317,27 +240,14 @@ class SiliconFlowTTSConfig(I18nMixin):
     gain: int = Field(0, alias="gain")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "api_key": Description(
-            en="API key for SiliconFlow TTS service",
-            zh="SiliconFlow TTS 服务的 API 密钥",
-        ),
-        "url": Description(
-            en="API endpoint URL for SiliconFlow TTS",
-            zh="SiliconFlow TTS 的 API 端点 URL",
-        ),
-        "model": Description(
-            en="Model to use for SiliconFlow TTS", zh="SiliconFlow TTS 使用的模型"
-        ),
-        "voice": Description(
-            en="Voice name to use for SiliconFlow TTS",
-            zh="SiliconFlow TTS 使用的语音名称",
-        ),
-        "sample_rate": Description(
-            en="Sample rate of the output audio", zh="输出音频的采样率"
-        ),
-        "stream": Description(en="Enable streaming mode", zh="启用流式模式"),
-        "speed": Description(en="Speaking speed multiplier", zh="语速倍数"),
-        "gain": Description(en="Audio gain adjustment", zh="音频增益调整"),
+        "api_key": Description(i18n_key="api_key_for_siliconflow_tts_service"),
+        "url": Description(i18n_key="api_endpoint_url_for_siliconflow_tts"),
+        "model": Description(i18n_key="model_to_use_for_siliconflow_tts"),
+        "voice": Description(i18n_key="voice_name_to_use_for_siliconflow_tts"),
+        "sample_rate": Description(i18n_key="sample_rate_of_the_output_audio"),
+        "stream": Description(i18n_key="enable_streaming_mode"),
+        "speed": Description(i18n_key="speaking_speed_multiplier"),
+        "gain": Description(i18n_key="audio_gain_adjustment"),
     }
 
 
@@ -351,26 +261,11 @@ class OpenAITTSConfig(I18nMixin):
     file_extension: Literal["mp3", "wav"] = Field("mp3", alias="file_extension")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "model": Description(
-            en="Model name for the TTS server (overrides default)",
-            zh="TTS 服务器的模型名称（覆盖默认值）",
-        ),
-        "voice": Description(
-            en="Voice name(s) for the TTS server (overrides default)",
-            zh="TTS 服务器的语音名称（覆盖默认值）",
-        ),
-        "api_key": Description(
-            en="API key if required by the TTS server (overrides default)",
-            zh="TTS 服务器所需的 API 密钥（覆盖默认值）",
-        ),
-        "base_url": Description(
-            en="Base URL of the TTS server (overrides default)",
-            zh="TTS 服务器的基础 URL（覆盖默认值）",
-        ),
-        "file_extension": Description(
-            en="Audio file format (mp3 or wav, defaults to mp3)",
-            zh="音频文件格式（mp3 或 wav，默认为 mp3）",
-        ),
+        "model": Description(i18n_key="model_name_for_the_tts_server_overrides_default"),
+        "voice": Description(i18n_key="voice_names_for_the_tts_server_overrides_default"),
+        "api_key": Description(i18n_key="api_key_if_required_by_the_tts_server_overrides_default"),
+        "base_url": Description(i18n_key="base_url_of_the_tts_server_overrides_default"),
+        "file_extension": Description(i18n_key="audio_file_format_mp3_or_wav_defaults_to_mp3"),
     }
 
 
@@ -385,29 +280,12 @@ class SparkTTSConfig(I18nMixin):
     speed: int = Field(..., alias="speed")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "prompt_wav_upload": Description(
-            en="Reference audio (used when using voice cloning)",
-            zh="参考音频（使用语音克隆时候使用）",
-        ),
-        "api_url": Description(
-            en="API address of the spark tts gradio web frontend. For example: http://127.0.0.1:7860/voice_clone",
-            zh="你的API地址。举例：http://127.0.0.1:7860/voice_clone",
-        ),
-        "api_name": Description(
-            en="The API endpoint name. For example: voice_clone,voice_creation",
-            zh="你的API名称。举例：voice_clone，voice_creation",
-        ),
-        "gender": Description(
-            en="Gender of the voice (male or female)", zh="声音性别（男或女）"
-        ),
-        "pitch": Description(
-            en="Pitch shift (in semitones) default 3,range 1-5.",
-            zh="音高（以半音为单位）默认3，范围1-5",
-        ),
-        "speed": Description(
-            en="Speed of the voice (in percent) default 3,range 1-5.",
-            zh="声音速度（以百分比为单位）默认3，范围1-5",
-        ),
+        "prompt_wav_upload": Description(i18n_key="reference_audio_used_when_using_voice_cloning"),
+        "api_url": Description(i18n_key="api_address_of_the_spark_tts_gradio_web_frontend_for_example_http1270017860voice_clone"),
+        "api_name": Description(i18n_key="the_api_endpoint_name_for_example_voice_clonevoice_creation"),
+        "gender": Description(i18n_key="gender_of_the_voice_male_or_female"),
+        "pitch": Description(i18n_key="pitch_shift_in_semitones_default_3range_1_5"),
+        "speed": Description(i18n_key="speed_of_the_voice_in_percent_default_3range_1_5"),
     }
 
 
@@ -421,13 +299,11 @@ class MinimaxTTSConfig(I18nMixin):
     pronunciation_dict: str = Field("", alias="pronunciation_dict")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "group_id": Description(en="Minimax group_id", zh="Minimax 的 group_id"),
-        "api_key": Description(en="Minimax API key", zh="Minimax 的 API key"),
-        "model": Description(en="Minimax model name", zh="Minimax 模型名称"),
-        "voice_id": Description(en="Minimax voice id", zh="Minimax 语音 id"),
-        "pronunciation_dict": Description(
-            en="Custom pronunciation dictionary (string)", zh="自定义发音字典（字符串）"
-        ),
+        "group_id": Description(i18n_key="minimax_group_id"),
+        "api_key": Description(i18n_key="minimax_api_key"),
+        "model": Description(i18n_key="minimax_model_name"),
+        "voice_id": Description(i18n_key="minimax_voice_id"),
+        "pronunciation_dict": Description(i18n_key="custom_pronunciation_dictionary_string"),
     }
 
 
@@ -460,7 +336,7 @@ class TTSConfig(I18nMixin):
     melo_tts: Optional[MeloTTSConfig] = Field(None, alias="melo_tts")
     coqui_tts: Optional[CoquiTTSConfig] = Field(None, alias="coqui_tts")
     x_tts: Optional[XTTSConfig] = Field(None, alias="x_tts")
-    gpt_sovits_tts: Optional[GPTSoVITSConfig] = Field(None, alias="gpt_sovits")
+    gpt_sovits_tts: Optional[GPTSoVITSConfig] = Field(None, alias="gpt_sovits_tts")
     fish_api_tts: Optional[FishAPITTSConfig] = Field(None, alias="fish_api_tts")
     sherpa_onnx_tts: Optional[SherpaOnnxTTSConfig] = Field(
         None, alias="sherpa_onnx_tts"
@@ -473,40 +349,22 @@ class TTSConfig(I18nMixin):
     minimax_tts: Optional[MinimaxTTSConfig] = Field(None, alias="minimax_tts")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "tts_model": Description(
-            en="Text-to-speech model to use", zh="要使用的文本转语音模型"
-        ),
-        "azure_tts": Description(en="Configuration for Azure TTS", zh="Azure TTS 配置"),
-        "bark_tts": Description(en="Configuration for Bark TTS", zh="Bark TTS 配置"),
-        "edge_tts": Description(en="Configuration for Edge TTS", zh="Edge TTS 配置"),
-        "cosyvoice_tts": Description(
-            en="Configuration for Cosyvoice TTS", zh="Cosyvoice TTS 配置"
-        ),
-        "cosyvoice2_tts": Description(
-            en="Configuration for Cosyvoice2 TTS", zh="Cosyvoice2 TTS 配置"
-        ),
-        "melo_tts": Description(en="Configuration for Melo TTS", zh="Melo TTS 配置"),
-        "coqui_tts": Description(en="Configuration for Coqui TTS", zh="Coqui TTS 配置"),
-        "x_tts": Description(en="Configuration for XTTS", zh="XTTS 配置"),
-        "gpt_sovits_tts": Description(
-            en="Configuration for GPT-SoVITS", zh="GPT-SoVITS 配置"
-        ),
-        "fish_api_tts": Description(
-            en="Configuration for Fish API TTS", zh="Fish API TTS 配置"
-        ),
-        "sherpa_onnx_tts": Description(
-            en="Configuration for Sherpa Onnx TTS", zh="Sherpa Onnx TTS 配置"
-        ),
-        "siliconflow_tts": Description(
-            en="Configuration for SiliconFlow TTS", zh="SiliconFlow TTS 配置"
-        ),
-        "openai_tts": Description(
-            en="Configuration for OpenAI-compatible TTS", zh="OpenAI 兼容 TTS 配置"
-        ),
-        "spark_tts": Description(en="Configuration for Spark TTS", zh="Spark TTS 配置"),
-        "minimax_tts": Description(
-            en="Configuration for Minimax TTS", zh="Minimax TTS 配置"
-        ),
+        "tts_model": Description(i18n_key="text_to_speech_model_to_use"),
+        "azure_tts": Description(i18n_key="configuration_for_azure_tts"),
+        "bark_tts": Description(i18n_key="configuration_for_bark_tts"),
+        "edge_tts": Description(i18n_key="configuration_for_edge_tts"),
+        "cosyvoice_tts": Description(i18n_key="configuration_for_cosyvoice_tts"),
+        "cosyvoice2_tts": Description(i18n_key="configuration_for_cosyvoice2_tts"),
+        "melo_tts": Description(i18n_key="configuration_for_melo_tts"),
+        "coqui_tts": Description(i18n_key="configuration_for_coqui_tts"),
+        "x_tts": Description(i18n_key="configuration_for_xtts"),
+        "gpt_sovits_tts": Description(i18n_key="configuration_for_gpt_sovits"),
+        "fish_api_tts": Description(i18n_key="configuration_for_fish_api_tts"),
+        "sherpa_onnx_tts": Description(i18n_key="configuration_for_sherpa_onnx_tts"),
+        "siliconflow_tts": Description(i18n_key="configuration_for_siliconflow_tts"),
+        "openai_tts": Description(i18n_key="configuration_for_openai_compatible_tts"),
+        "spark_tts": Description(i18n_key="configuration_for_spark_tts"),
+        "minimax_tts": Description(i18n_key="configuration_for_minimax_tts"),
     }
 
     @model_validator(mode="after")

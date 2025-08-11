@@ -1,6 +1,12 @@
 import json
-import chardet
+import os
+from pathlib import Path
+from typing import Dict, List
+
 from loguru import logger
+
+# Import i18n system
+from .i18n import t
 
 # This class will only prepare the payload for the live2d model
 # the process of sending the payload should be done by the caller
@@ -139,7 +145,7 @@ class Live2dModel:
 
         # The feature: "translate model url to full url if it starts with '/' " is no longer implemented here
 
-        logger.info("Model Information Loaded.")
+        logger.info(t("live2d.model_information_loaded"))
 
         return matched_model
 

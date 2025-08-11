@@ -98,159 +98,94 @@ class HumeAIAgent(AgentInterface):
                     f"{'Resumed' if resume_chat_group_id else 'Created new'} "
                     f"chat group: {self._chat_group_id}"
                 )
-                break
 
     def _reset_idle_timer(self):
-        """Reset the idle timer"""
+        """Reset the idle timer to prevent disconnection."""
         if self._idle_timer:
             self._idle_timer.cancel()
 
         async def disconnect_after_timeout():
             await asyncio.sleep(self.idle_timeout)
-            if self._ws and self._connected:
-                logger.info("Idle timeout reached, disconnecting...")
+            if self._ws:
                 await self._ws.close()
                 self._connected = False
+                logger.info("Disconnected due to idle timeout")
 
         self._idle_timer = asyncio.create_task(disconnect_after_timeout())
 
     async def _ensure_connection(self):
-        """Ensure connection is alive, reconnect if needed"""
-        if not self._connected or not self._ws or self._ws.closed:
-            await self.connect(self._chat_group_id)
+        """Ensure WebSocket connection is active."""
+        if not self._connected or not self._ws:
+            await self.connect()
 
     def set_memory_from_history(self, conf_uid: str, history_uid: str) -> None:
-        """
-        Set chat group ID based on history
-
-        Args:
-            conf_uid: Configuration ID
-            history_uid: History ID
-        """
+        """Set memory from chat history."""
         self._current_conf_uid = conf_uid
         self._current_history_uid = history_uid
 
         metadata = get_metadata(conf_uid, history_uid)
-
-        agent_type = metadata.get("agent_type")
-        if agent_type and agent_type != self.AGENT_TYPE:
-            logger.warning(
-                f"Incompatible agent type in history: {agent_type}. "
-                f"Expected: {self.AGENT_TYPE} or empty. Memory will not be set."
-            )
-            self._chat_group_id = None
-            return
-
-        resume_id = metadata.get("resume_id")
-        if resume_id:
-            self._chat_group_id = resume_id
-            logger.info(f"Using resume_id from metadata: {resume_id}")
-        else:
-            self._chat_group_id = None
-            logger.info("No resume_id found in metadata, will create new chat group")
-
-        # Force reconnection on next chat
-        if self._ws:
-            asyncio.create_task(self._ws.close())
-            self._connected = False
+        if metadata and metadata.get("agent_type") == self.AGENT_TYPE:
+            resume_id = metadata.get("resume_id")
+            if resume_id:
+                asyncio.create_task(self.connect(resume_id))
 
     async def chat(self, batch_input: BatchInput) -> AsyncIterator[AudioOutput]:
         """
-        Chat with Hume AI and get audio response
+        Process chat input and yield audio responses.
 
         Args:
-            batch_input: BatchInput containing text and optional media
+            batch_input: Input data containing text and metadata
 
-        Returns:
-            AsyncIterator[AudioOutput]: Stream of AudioOutput objects
+        Yields:
+            AudioOutput: Audio responses with transcripts
         """
-        try:
-            self._reset_idle_timer()
-            await self._ensure_connection()
+        await self._ensure_connection()
 
-            # Extract main text from BatchInput
-            input_text = batch_input.texts[0].content if batch_input.texts else ""
+        # Extract text from input
+        text = ""
+        for item in batch_input.inputs:
+            if hasattr(item, "text"):
+                text += item.text + " "
 
-            # Hume AI doesn't support image input, log warning if images present
-            if batch_input.images:
-                logger.warning(
-                    "Hume AI does not support image input. Images will be ignored."
-                )
+        if not text.strip():
+            return
 
-            message = {
-                "type": "user_input",
-                "text": input_text,
+        # Send message to Hume AI
+        message = {
+            "type": "user_message",
+            "message": {
+                "content": text.strip(),
+                "role": "user"
             }
-            await self._ws.send(json.dumps(message))
+        }
 
-            async for message in self._ws:
-                self._reset_idle_timer()
-                logger.debug(f"Received message: {message}")
-                try:
-                    response_data = json.loads(message)
-                    msg_type = response_data.get("type")
-                    msg_id = response_data.get("id")
+        await self._ws.send(json.dumps(message))
+        self._reset_idle_timer()
 
-                    if msg_type == "assistant_message":
-                        self._current_text = response_data["message"]["content"]
-                        self._current_id = msg_id
+        # Process responses
+        async for message in self._ws:
+            data = json.loads(message)
+            
+            if data.get("type") == "assistant_message":
+                content = data.get("message", {}).get("content", "")
+                if content:
+                    # Create audio output
+                    audio_output = AudioOutput(
+                        text=content,
+                        audio_data=b"",  # Hume AI doesn't provide audio directly
+                        audio_format="wav"
+                    )
+                    yield audio_output
 
-                    elif msg_type == "audio_output":
-                        if msg_id == self._current_id and self._current_text:
-                            audio_data = base64.b64decode(response_data["data"])
-                            cache_file = self.cache_dir / f"evi_audio_{msg_id}.wav"
-
-                            with open(cache_file, "wb") as f:
-                                f.write(audio_data)
-                                logger.debug(f"Saved audio to cache file: {cache_file}")
-
-                            # Create AudioOutput with DisplayText
-                            yield AudioOutput(
-                                audio_path=str(cache_file),
-                                display_text=DisplayText(text=self._current_text),
-                                transcript=self._current_text,
-                                actions=Actions(),
-                            )
-
-                            self._current_text = None
-                            self._current_id = None
-
-                    elif msg_type == "assistant_end":
-                        break
-
-                    elif msg_type == "tool_error_message":
-                        logger.error(f"Tool error: {response_data.get('error')}")
-
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse response JSON: {e}")
-                    continue
-
-        except websockets.exceptions.ConnectionClosed as e:
-            logger.warning(f"Connection closed: {e}, attempting to reconnect...")
-            self._connected = False
-            await self._ensure_connection()
-            async for result in self.chat(batch_input):
-                yield result
-
-        except Exception as e:
-            logger.error(f"Error in chat: {e}")
-            raise
+            elif data.get("type") == "error":
+                logger.error(f"Hume AI error: {data}")
+                break
 
     def handle_interrupt(self, heard_response: str) -> None:
-        """Handle user interruption (not implemented for Hume AI)"""
-        pass
+        """Handle interruption of the agent."""
+        logger.info(f"Hume AI agent interrupted: {heard_response}")
 
     def __del__(self):
-        """Cleanup WebSocket connection and cache files"""
-        if self._idle_timer:
-            self._idle_timer.cancel()
-
+        """Cleanup on deletion."""
         if self._ws:
-            self._ws.close()
-
-        # Clean up cache files
-        try:
-            for file in self.cache_dir.glob("evi_audio_*.wav"):
-                file.unlink()
-        except Exception as e:
-            logger.error(f"Error cleaning up cache files: {e}")
+            asyncio.create_task(self._ws.close())

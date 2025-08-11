@@ -17,7 +17,11 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Open-LLM-VTuber/Open-LLM-VTuber)
 
+<<<<<<< HEAD
 English README | [中文README](https://github.com/t41372/Open-LLM-VTuber/blob/main/README.CN.md)
+=======
+Русский README | [English README](https://github.com/lizardjazz1/Open-LLM-VTuber/blob/main/README.EN.md) | [中文README](https://github.com/lizardjazz1/Open-LLM-VTuber/blob/main/README.CN.md)
+>>>>>>> 461513e (🌍 Complete i18n system implementation)
 
 [Documentation](https://open-llm-vtuber.github.io/docs/quick-start) | [![Roadmap](https://img.shields.io/badge/Roadmap-GitHub_Project-yellow)](https://github.com/orgs/Open-LLM-VTuber/projects/2)
 
@@ -34,111 +38,112 @@ English README | [中文README](https://github.com/t41372/Open-LLM-VTuber/blob/m
 
 
 
-> :warning: This project is in its early stages and is currently under **active development**.
+> :warning: Этот проект находится на ранней стадии разработки и активно развивается.
 
-> :warning: If you want to run the server remotely and access it on a different machine, such as running the server on your computer and access it on your phone, you will need to configure `https`, because the microphone on the front end will only launch in a secure context (a.k.a. https or localhost). See [MDN Web Doc](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia). Therefore, you should configure https with a reverse proxy to access the page on a remote machine (non-localhost).
-
-
-
-## ⭐️ What is this project?
+> :warning: Если вы хотите запустить сервер удаленно и получить доступ к нему с другого устройства, например, запустить сервер на компьютере и получить доступ с телефона, вам нужно настроить `https`, потому что микрофон на фронтенде будет работать только в безопасном контексте (т.е. https или localhost). См. [MDN Web Doc](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia). Поэтому вам следует настроить https с обратным прокси для доступа к странице на удаленной машине (не localhost).
 
 
-**Open-LLM-VTuber** is a unique **voice-interactive AI companion** that not only supports **real-time voice conversations**  and **visual perception** but also features a lively **Live2D avatar**. All functionalities can run completely offline on your computer!
 
-You can treat it as your personal AI companion — whether you want a `virtual girlfriend`, `boyfriend`, `cute pet`, or any other character, it can meet your expectations. The project fully supports `Windows`, `macOS`, and `Linux`, and offers two usage modes: web version and desktop client (with special support for **transparent background desktop pet mode**, allowing the AI companion to accompany you anywhere on your screen).
-
-Although the long-term memory feature is temporarily removed (coming back soon), thanks to the persistent storage of chat logs, you can always continue your previous unfinished conversations without losing any precious interactive moments.
-
-In terms of backend support, we have integrated a rich variety of LLM inference, text-to-speech, and speech recognition solutions. If you want to customize your AI companion, you can refer to the [Character Customization Guide](https://open-llm-vtuber.github.io/docs/user-guide/live2d) to customize your AI companion's appearance and persona.
-
-The reason it's called `Open-LLM-Vtuber` instead of `Open-LLM-Companion` or `Open-LLM-Waifu` is because the project's initial development goal was to use open-source solutions that can run offline on platforms other than Windows to recreate the closed-source AI Vtuber `neuro-sama`.
-
-This project underwent code refactoring after version `v1.0.0` and is currently in active development, with many exciting features coming soon! 🚀 Check out our [Roadmap](https://github.com/users/t41372/projects/1/views/5) to learn about update plans.
+## ⭐️ Что это за проект?
 
 
-### 👀 Demo
+**Open-LLM-VTuber** — это уникальный **голосовой ИИ-компаньон**, который не только поддерживает **общение в реальном времени** и **визуальное восприятие**, но также имеет оживленный **Live2D аватар**. Все функции могут работать полностью офлайн на вашем компьютере!
+
+Вы можете относиться к нему как к своему личному ИИ-компаньону — хотите ли вы `виртуальную девушку`, `парня`, `милого питомца` или любого другого персонажа, он может оправдать ваши ожидания. Проект полностью поддерживает `Windows`, `macOS` и `Linux`, и предлагает два режима использования: веб-версия и десктопный клиент (с особой поддержкой **режима прозрачного фона для десктопного питомца**, позволяя ИИ-компаньону сопровождать вас везде на экране).
+
+Хотя функция долгосрочной памяти временно удалена (скоро вернется), благодаря постоянному хранению журналов чата вы всегда можете продолжить предыдущие незавершенные разговоры, не теряя драгоценные моменты взаимодействия.
+
+С точки зрения поддержки бэкенда, мы интегрировали богатое разнообразие решений для вывода LLM, преобразования текста в речь и распознавания речи. Если вы хотите настроить своего ИИ-компаньона, вы можете обратиться к [Руководству по настройке персонажа](https://open-llm-vtuber.github.io/docs/user-guide/live2d) для настройки внешнего вида и личности вашего ИИ-компаньона.
+
+Причина, по которой он называется `Open-LLM-Vtuber` вместо `Open-LLM-Companion` или `Open-LLM-Waifu`, заключается в том, что первоначальной целью разработки проекта было использование открытых решений, которые могут работать офлайн на платформах, отличных от Windows, для воссоздания закрытого ИИ-витубера `neuro-sama`.
+
+Этот проект прошел рефакторинг кода после версии `v1.0.0` и в настоящее время активно разрабатывается, с множеством захватывающих функций, которые скоро появятся! 🚀 Ознакомьтесь с нашим [Roadmap](https://github.com/users/t41372/projects/1/views/5), чтобы узнать о планах обновлений.
+
+
+### 👀 Демо
 | ![](assets/i1.jpg) | ![](assets/i2.jpg) |
 |:---:|:---:|
 | ![](assets/i3.jpg) | ![](assets/i4.jpg) |
 
 
-## ✨ Features & Highlights
+## ✨ Возможности и особенности
 
-- 🖥️ **Cross-platform support**: Perfect compatibility with macOS, Linux, and Windows. We support NVIDIA and non-NVIDIA GPUs, with options to run on CPU or use cloud APIs for resource-intensive tasks. Some components support GPU acceleration on macOS.
+- 🖥️ **Кросс-платформенная поддержка**: Идеальная совместимость с macOS, Linux и Windows. Мы поддерживаем NVIDIA и не-NVIDIA GPU, с возможностью запуска на CPU или использования облачных API для ресурсоемких задач. Некоторые компоненты поддерживают ускорение GPU на macOS.
 
-- 🔒 **Offline mode support**: Run completely offline using local models - no internet required. Your conversations stay on your device, ensuring privacy and security.
+- 🔒 **Поддержка офлайн режима**: Работает полностью офлайн, используя локальные модели — интернет не требуется. Ваши разговоры остаются на вашем устройстве, обеспечивая конфиденциальность и безопасность.
 
-- 💻 **Attractive and powerful web and desktop clients**: Offers both web version and desktop client usage modes, supporting rich interactive features and personalization settings. The desktop client can switch freely between window mode and desktop pet mode, allowing the AI companion to be by your side at all times.
+- 💻 **Привлекательные и мощные веб- и десктопные клиенты**: Предлагает как веб-версию, так и режим использования десктопного клиента, поддерживая богатые интерактивные функции и настройки персонализации. Десктопный клиент может свободно переключаться между оконным режимом и режимом десктопного питомца, позволяя ИИ-компаньону быть рядом с вами в любое время.
 
-- 🎯 **Advanced interaction features**:
-  - 👁️ Visual perception, supporting camera, screen recording and screenshots, allowing your AI companion to see you and your screen
-  - 🎤 Voice interruption without headphones (AI won't hear its own voice)
-  - 🫱 Touch feedback, interact with your AI companion through clicks or drags
-  - 😊 Live2D expressions, set emotion mapping to control model expressions from the backend
-  - 🐱 Pet mode, supporting transparent background, global top-most, and mouse click-through - drag your AI companion anywhere on the screen
-  - 💭 Display AI's inner thoughts, allowing you to see AI's expressions, thoughts and actions without them being spoken
-  - 🗣️ AI proactive speaking feature
-  - 💾 Chat log persistence, switch to previous conversations anytime
-  - 🌍 TTS translation support (e.g., chat in Chinese while AI uses Japanese voice)
+- 🎯 **Продвинутые функции взаимодействия**:
+  - 👁️ Визуальное восприятие, поддерживающее камеру, запись экрана и скриншоты, позволяя вашему ИИ-компаньону видеть вас и ваш экран
+  - 🎤 Голосовое прерывание без наушников (ИИ не слышит собственный голос)
+  - 🫱 Тактильная обратная связь, взаимодействуйте с вашим ИИ-компаньоном через клики или перетаскивание
+  - 😊 Live2D выражения, установите маппинг эмоций для управления выражениями модели из бэкенда
+  - 🐱 Режим питомца, поддерживающий прозрачный фон, глобальное поверх всех окон и прохождение кликов мыши — перетащите вашего ИИ-компаньона куда угодно на экране
+  - 💭 Отображение внутренних мыслей ИИ, позволяя вам видеть выражения, мысли и действия ИИ без их произнесения
+  - 🗣️ Функция активной речи ИИ
+  - 💾 Постоянство журналов чата, переключайтесь на предыдущие разговоры в любое время
+  - 🌍 Поддержка перевода TTS (например, общение на китайском, пока ИИ использует японский голос)
 
-- 🧠 **Extensive model support**:
-  - 🤖 Large Language Models (LLM): Ollama, OpenAI (and any OpenAI-compatible API), Gemini, Claude, Mistral, DeepSeek, Zhipu AI, GGUF, LM Studio, vLLM, etc.
-  - 🎙️ Automatic Speech Recognition (ASR): sherpa-onnx, FunASR, Faster-Whisper, Whisper.cpp, Whisper, Groq Whisper, Azure ASR, etc.
-  - 🔊 Text-to-Speech (TTS): sherpa-onnx, pyttsx3, MeloTTS, Coqui-TTS, GPTSoVITS, Bark, CosyVoice, Edge TTS, Fish Audio, Azure TTS, etc.
+- 🧠 **Обширная поддержка моделей**:
+  - 🤖 Большие языковые модели (LLM): Ollama, OpenAI (и любой совместимый с OpenAI API), Gemini, Claude, Mistral, DeepSeek, Zhipu AI, GGUF, LM Studio, vLLM и др.
+  - 🎙️ Автоматическое распознавание речи (ASR): sherpa-onnx, FunASR, Faster-Whisper, Whisper.cpp, Whisper, Groq Whisper, Azure ASR и др.
+  - 🔊 Преобразование текста в речь (TTS): sherpa-onnx, pyttsx3, MeloTTS, Coqui-TTS, GPTSoVITS, Bark, CosyVoice, Edge TTS, Fish Audio, Azure TTS и др.
 
-- 🔧 **Highly customizable**:
-  - ⚙️ **Simple module configuration**: Switch various functional modules through simple configuration file modifications, without delving into the code
-  - 🎨 **Character customization**: Import custom Live2D models to give your AI companion a unique appearance. Shape your AI companion's persona by modifying the Prompt. Perform voice cloning to give your AI companion the voice you desire
-  - 🧩 **Flexible Agent implementation**: Inherit and implement the Agent interface to integrate any Agent architecture, such as HumeAI EVI, OpenAI Her, Mem0, etc.
-  - 🔌 **Good extensibility**: Modular design allows you to easily add your own LLM, ASR, TTS, and other module implementations, extending new features at any time
-
-
-## 👥 User Reviews
-> Thanks to the developer for open-sourcing and sharing the girlfriend for everyone to use
-> 
-> This girlfriend has been used over 100,000 times
+- 🔧 **Высокая настраиваемость**:
+  - ⚙️ **Простая конфигурация модулей**: Переключайте различные функциональные модули через простые изменения конфигурационного файла, не углубляясь в код
+  - 🎨 **Настройка персонажа**: Импортируйте пользовательские Live2D модели, чтобы придать вашему ИИ-компаньону уникальный внешний вид. Формируйте личность вашего ИИ-компаньона, изменяя Prompt. Выполняйте клонирование голоса, чтобы придать вашему ИИ-компаньону желаемый голос
+  - 🧩 **Гибкая реализация Agent**: Наследуйте и реализуйте интерфейс Agent для интеграции любой архитектуры Agent, такой как HumeAI EVI, OpenAI Her, Mem0 и др.
+  - 🔌 **Хорошая расширяемость**: Модульная конструкция позволяет легко добавлять собственные реализации LLM, ASR, TTS и других модулей, расширяя новые функции в любое время
 
 
-## 🚀 Quick Start
+## 👥 Отзывы пользователей
+> Спасибо разработчику за открытый исходный код и обмен девушкой для всех
 
-Please refer to the [Quick Start](https://open-llm-vtuber.github.io/docs/quick-start) section in our documentation for installation.
-
-
-
-## ☝ Update
-> :warning: `v1.0.0` has breaking changes and requires re-deployment. You *may* still update via the method below, but the `conf.yaml` file is incompatible and most of the dependencies needs to be reinstalled with `uv`. For those who came from versions before `v1.0.0`, I recommend deploy this project again with the [latest deployment guide](https://open-llm-vtuber.github.io/docs/quick-start).
-
-Please use `uv run update.py` to update if you installed any versions later than `v1.0.0`.
-
-## 😢 Uninstall  
-Most files, including Python dependencies and models, are stored in the project folder.
-
-However, models downloaded via ModelScope or Hugging Face may also be in `MODELSCOPE_CACHE` or `HF_HOME`. While we aim to keep them in the project's `models` directory, it's good to double-check.  
-
-Review the installation guide for any extra tools you no longer need, such as `uv`, `ffmpeg`, or `deeplx`.  
-
-## 🤗 Want to contribute?
-Checkout the [development guide](https://docs.llmvtuber.com/docs/development-guide/overview).
+> Эта девушка использовалась более 100 000 раз
 
 
-# 🎉🎉🎉 Related Projects
+## 🚀 Быстрый старт
+
+Пожалуйста, обратитесь к разделу [Быстрый старт](https://open-llm-vtuber.github.io/docs/quick-start) в нашей документации для установки.
+
+
+
+## ☝ Обновление
+> :warning: `v1.0.0` имеет критические изменения и требует повторного развертывания. Вы *можете* все еще обновляться через метод ниже, но файл `conf.yaml` несовместим и большинство зависимостей нужно переустановить с `uv`. Для тех, кто пришел из версий до `v1.0.0`, я рекомендую развернуть этот проект снова с [последним руководством по развертыванию](https://open-llm-vtuber.github.io/docs/quick-start).
+
+Пожалуйста, используйте `uv run update.py` для обновления, если вы установили любые версии позже `v1.0.0`.
+
+## 😢 Удаление  
+Большинство файлов, включая зависимости Python и модели, хранятся в папке проекта.
+
+Однако модели, загруженные через ModelScope или Hugging Face, также могут быть в `MODELSCOPE_CACHE` или `HF_HOME`. Хотя мы стремимся держать их в директории `models` проекта, хорошо бы перепроверить.  
+
+Просмотрите руководство по установке для любых дополнительных инструментов, которые вам больше не нужны, таких как `uv`, `ffmpeg` или `deeplx`.  
+
+## 🤗 Хотите внести вклад?
+Ознакомьтесь с [руководством по разработке](https://docs.llmvtuber.com/docs/development-guide/overview).
+
+
+# 🎉🎉🎉 Связанные проекты
 
 [ylxmf2005/LLM-Live2D-Desktop-Assitant](https://github.com/ylxmf2005/LLM-Live2D-Desktop-Assitant)
-- Your Live2D desktop assistant powered by LLM! Available for both Windows and MacOS, it senses your screen, retrieves clipboard content, and responds to voice commands with a unique voice. Featuring voice wake-up, singing capabilities, and full computer control for seamless interaction with your favorite character.
+- Ваш Live2D десктопный ассистент, работающий на LLM! Доступен как для Windows, так и для MacOS, он чувствует ваш экран, извлекает содержимое буфера обмена и отвечает на голосовые команды уникальным голосом. Включает голосовое пробуждение, возможности пения и полный контроль компьютера для бесшовного взаимодействия с вашим любимым персонажем.
 
 
 
 
 
 
-## 📜 Third-Party Licenses
+## 📜 Лицензии третьих сторон
 
-### Live2D Sample Models Notice
+### Уведомление о Live2D Sample Models
 
-This project includes Live2D sample models provided by Live2D Inc. These assets are licensed separately under the Live2D Free Material License Agreement and the Terms of Use for Live2D Cubism Sample Data. They are not covered by the MIT license of this project.
+Этот проект включает Live2D примеры моделей, предоставленные Live2D Inc. Эти активы лицензированы отдельно в соответствии с Live2D Free Material License Agreement и Terms of Use for Live2D Cubism Sample Data. Они не покрываются MIT лицензией этого проекта.
 
-This content uses sample data owned and copyrighted by Live2D Inc. The sample data are utilized in accordance with the terms and conditions set by Live2D Inc. (See [Live2D Free Material License Agreement](https://www.live2d.jp/en/terms/live2d-free-material-license-agreement/) and [Terms of Use](https://www.live2d.com/eula/live2d-sample-model-terms_en.html)).
+Этот контент использует примеры данных, принадлежащие и защищенные авторским правом Live2D Inc. Примеры данных используются в соответствии с условиями, установленными Live2D Inc. (См. [Live2D Free Material License Agreement](https://www.live2d.jp/en/terms/live2d-free-material-license-agreement/) и [Terms of Use](https://www.live2d.com/eula/live2d-sample-model-terms_en.html)).
 
+<<<<<<< HEAD
 Note: For commercial use, especially by medium or large-scale enterprises, the use of these Live2D sample models may be subject to additional licensing requirements. If you plan to use this project commercially, please ensure that you have the appropriate permissions from Live2D Inc., or use versions of the project without these models.
 
 
@@ -153,8 +158,19 @@ Thanks our contributors and maintainers for making this project possible.
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=t41372/open-llm-vtuber&type=Date)](https://star-history.com/#t41372/open-llm-vtuber&Date)
+=======
+Примечание: Для коммерческого использования, особенно средними или крупными предприятиями, использование этих Live2D примеров моделей может подлежать дополнительным лицензионным требованиям. Если вы планируете использовать этот проект коммерчески, пожалуйста, убедитесь, что у вас есть соответствующие разрешения от Live2D Inc., или используйте версии проекта без этих моделей.
+>>>>>>> 461513e (🌍 Complete i18n system implementation)
 
 
+## Участники
+Спасибо нашим участникам и сопровождающим за то, что сделали этот проект возможным.
+
+<a href="https://github.com/Open-LLM-VTuber/Open-LLM-VTuber/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Open-LLM-VTuber/Open-LLM-VTuber" />
+</a>
 
 
+## История звезд
 
+[![Star History Chart](https://api.star-history.com/svg?repos=t41372/open-llm-vtuber&type=Date)](https://star-history.com/#t41372/open-llm-vtuber&Date) 

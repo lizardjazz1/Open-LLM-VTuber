@@ -1,0 +1,12 @@
+{
+    "mcp_servers": {
+      "time": {
+        "command": "python",
+        "args": ["-m", "mcp_server_time", "--local-timezone=Europe/Moscow"]
+      },
+      "ddg-search": {
+        "command": "npx",
+        "args": ["-y", "duckduckgo-mcp-server"]
+      }
+    }
+} 

@@ -1,6 +1,7 @@
 # config_manager/i18n.py
 from typing import Dict, ClassVar
 from pydantic import BaseModel, Field, ConfigDict
+from src.open_llm_vtuber.i18n import t
 
 
 class MultiLingualString(BaseModel):
@@ -10,13 +11,14 @@ class MultiLingualString(BaseModel):
 
     en: str = Field(..., description="English translation")
     zh: str = Field(..., description="Chinese translation")
+    ru: str = Field(..., description="Russian translation")
 
     def get(self, lang_code: str) -> str:
         """
         Retrieves the translation for the specified language code.
 
         Args:
-            lang_code: The language code (e.g., "en", "zh").
+            lang_code: The language code (e.g., "en", "zh", "ru").
 
         Returns:
             The translation for the specified language code, or the English translation if the specified language is not found.
@@ -24,116 +26,138 @@ class MultiLingualString(BaseModel):
         return getattr(self, lang_code, self.en)
 
 
-class Description(MultiLingualString):
+class Description(BaseModel):
     """
-    Represents a description with translations in multiple languages.
+    Represents a field description using i18n keys.
     """
 
-    notes: MultiLingualString | None = Field(
-        default=None, description="Additional notes"
-    )
+    i18n_key: str = Field(..., description="i18n key for centralized translations")
 
-    def get_text(self, lang_code: str) -> str:
+    def get(self, lang_code: str = "en") -> str:
         """
-        Retrieves the main description text in the specified language.
+        Retrieves the description using the i18n system.
 
         Args:
-            lang_code: The language code (e.g., "en", "zh").
+            lang_code: The language code (e.g., "en", "zh", "ru").
 
         Returns:
-            The main description text in the specified language.
+            The translated description.
         """
-        return self.get(lang_code)
-
-    def get_notes(self, lang_code: str) -> str | None:
-        """
-        Retrieves the additional notes in the specified language.
-
-        Args:
-            lang_code: The language code (e.g., "en", "zh").
-
-        Returns:
-            The additional notes in the specified language, or None if no notes are available.
-        """
-        return self.notes.get(lang_code) if self.notes else None
-
-    @classmethod
-    def from_str(cls, text: str, notes: str | None = None) -> "Description":
-        """
-        Creates a Description instance from plain strings, assuming English as the default language.
-
-        Args:
-            text: The main description text.
-            notes: Additional notes (optional).
-
-        Returns:
-            A Description instance with the provided text and notes in English.
-        """
-        return cls(
-            en=text,
-            zh=text,
-            notes=MultiLingualString(en=notes, zh=notes) if notes else None,
-        )
+        return t(self.i18n_key)
 
 
 class I18nMixin(BaseModel):
     """
-    A mixin class for Pydantic models that provides multilingual descriptions for fields.
+    Mixin for Pydantic models to support internationalization.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(extra="forbid")
+    
+    # Class variable for field descriptions - not a model field
+    DESCRIPTIONS: ClassVar[Dict[str, Description | str]] = {}
 
-    DESCRIPTIONS: ClassVar[Dict[str, Description]] = {}
-
-    @classmethod
-    def get_field_description(
-        cls, field_name: str, lang_code: str = "en"
-    ) -> str | None:
+    def get_field_description(self, field_name: str, lang_code: str = "en") -> str:
         """
-        Retrieves the description of a field in the specified language.
+        Get the description for a field using the i18n system.
 
         Args:
             field_name: The name of the field.
-            lang_code: The language code (e.g., "en", "zh").
+            lang_code: The language code (e.g., "en", "zh", "ru").
 
         Returns:
-            The description of the field in the specified language, or None if no description is available.
+            The description for the field in the specified language.
         """
-        description = cls.DESCRIPTIONS.get(field_name)
-        if description:
-            return description.get_text(lang_code)
-        return None
+        if hasattr(self, "DESCRIPTIONS") and field_name in self.DESCRIPTIONS:
+            description = self.DESCRIPTIONS[field_name]
+            if isinstance(description, Description):
+                return description.get(lang_code)
+            elif isinstance(description, str):
+                return description
+        return field_name
 
-    @classmethod
-    def get_field_notes(cls, field_name: str, lang_code: str = "en") -> str | None:
+    def get_all_descriptions(self, lang_code: str = "en") -> Dict[str, str]:
         """
-        Retrieves the additional notes for a field in the specified language.
+        Get all field descriptions in the specified language.
+
+        Args:
+            lang_code: The language code (e.g., "en", "zh", "ru").
+
+        Returns:
+            Dictionary mapping field names to their descriptions in the specified language.
+        """
+        descriptions = {}
+        if hasattr(self, "DESCRIPTIONS"):
+            for field_name, description in self.DESCRIPTIONS.items():
+                if isinstance(description, Description):
+                    descriptions[field_name] = description.get(lang_code)
+                elif isinstance(description, str):
+                    descriptions[field_name] = description
+        return descriptions
+
+    def get_i18n_key(self, field_name: str) -> str | None:
+        """
+        Get the i18n key for a field if available.
 
         Args:
             field_name: The name of the field.
-            lang_code: The language code (e.g., "en", "zh").
 
         Returns:
-            The additional notes for the field in the specified language, or None if no notes are available.
+            The i18n key for the field, or None if not available.
         """
-        description = cls.DESCRIPTIONS.get(field_name)
-        if description:
-            return description.get_notes(lang_code)
+        if hasattr(self, "DESCRIPTIONS") and field_name in self.DESCRIPTIONS:
+            description = self.DESCRIPTIONS[field_name]
+            if isinstance(description, Description):
+                return description.i18n_key
         return None
 
-    @classmethod
-    def get_field_options(cls, field_name: str) -> list | Dict | None:
+    def get_available_languages(self) -> list[str]:
         """
-        Retrieves the options for a field, if any are defined.
+        Get the list of available languages for this model.
+
+        Returns:
+            List of available language codes.
+        """
+        return ["en", "zh", "ru"]
+
+    def validate_translations(self) -> Dict[str, list[str]]:
+        """
+        Validate that all i18n keys exist in translation files.
+
+        Returns:
+            Dictionary mapping field names to list of missing i18n keys.
+        """
+        missing_keys = {}
+        
+        if hasattr(self, "DESCRIPTIONS"):
+            for field_name, description in self.DESCRIPTIONS.items():
+                if isinstance(description, Description):
+                    # Check if the i18n key exists by trying to get it
+                    try:
+                        t(description.i18n_key)
+                    except:
+                        missing_keys[field_name] = [description.i18n_key]
+        
+        return missing_keys
+
+    def export_translations(self, lang_code: str = "en") -> Dict[str, str]:
+        """
+        Export all field descriptions for a specific language.
 
         Args:
-            field_name: The name of the field.
+            lang_code: The language code to export.
 
         Returns:
-            The options for the field, which can be a list or a dictionary, or None if no options are defined.
+            Dictionary mapping field names to their descriptions in the specified language.
         """
-        field = cls.model_fields.get(field_name)
-        if field:
-            if hasattr(field, "options"):
-                return field.options
-        return None
+        return self.get_all_descriptions(lang_code)
+
+    def import_translations(self, translations: Dict[str, str], lang_code: str = "en"):
+        """
+        Import translations for a specific language.
+
+        Args:
+            translations: Dictionary mapping field names to their descriptions.
+            lang_code: The language code for the translations.
+        """
+        # This method is now deprecated since we use centralized i18n
+        pass

@@ -157,6 +157,10 @@ class WebSocketHandler:
             json.dumps({"type": "full-text", "text": "Connection established"})
         )
 
+        # Логируем информацию о модели перед отправкой
+        logger.info(f"🔍 Live2D model info: {session_service_context.live2d_model.model_info if session_service_context.live2d_model else 'None'}")
+        logger.info(f"🔍 Character config: {session_service_context.character_config.conf_name}")
+
         await websocket.send_text(
             json.dumps(
                 {

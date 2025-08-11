@@ -139,6 +139,18 @@ def display_processor():
                             elif tag.state == TagState.END:
                                 text = ")"
 
+                    # Try to parse JSON response and extract the "response" field
+                    try:
+                        import json
+                        parsed_json = json.loads(text)
+                        if isinstance(parsed_json, dict) and "response" in parsed_json:
+                            # Extract only the response field from JSON
+                            text = parsed_json["response"]
+                            logger.info(f"Extracted response from JSON in display_processor: {text}")
+                    except (json.JSONDecodeError, KeyError):
+                        # If not valid JSON or no response field, use as-is
+                        pass
+
                     display = DisplayText(text=text)  # Simplified DisplayText creation
                     yield sentence, display, actions  # Yield the tuple
                 elif isinstance(item, dict):

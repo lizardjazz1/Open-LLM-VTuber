@@ -28,6 +28,7 @@ from ...mcpp.tool_manager import ToolManager
 from ...mcpp.json_detector import StreamJSONDetector
 from ...mcpp.types import ToolCallObject
 from ...mcpp.tool_executor import ToolExecutor
+import asyncio
 
 
 class BasicMemoryAgent(AgentInterface):
@@ -303,6 +304,10 @@ class BasicMemoryAgent(AgentInterface):
             pending_tool_calls.clear()
             current_assistant_message_content.clear()
 
+            # Получаем поток как асинхронный итератор
+            if asyncio.iscoroutine(stream):
+                stream = await stream
+
             async for event in stream:
                 if event["type"] == "text_delta":
                     text = event["text"]
@@ -406,6 +411,7 @@ class BasicMemoryAgent(AgentInterface):
         tools: List[Dict[str, Any]],
     ) -> AsyncIterator[Union[str, Dict[str, Any]]]:
         """Handle OpenAI interaction with tool support."""
+        logger.info(f"🚀 Starting OpenAI tool interaction loop with {len(tools)} tools")
         messages = initial_messages.copy()
         current_turn_text = ""
         pending_tool_calls: Union[List[ToolCallObject], List[Dict[str, Any]]] = []
@@ -434,7 +440,13 @@ class BasicMemoryAgent(AgentInterface):
             detected_prompt_json = None
             goto_next_while_iteration = False
 
+            # Получаем поток как асинхронный итератор
+            if asyncio.iscoroutine(stream):
+                stream = await stream
+            
             async for event in stream:
+                logger.debug(f"🔍 Processing event: {type(event)} = {event}")
+                logger.debug(f"🔍 prompt_mode_flag: {self.prompt_mode_flag}")
                 if self.prompt_mode_flag:
                     if isinstance(event, str):
                         current_turn_text += event
@@ -458,6 +470,7 @@ class BasicMemoryAgent(AgentInterface):
                                     break
                         yield event
                 else:
+                    logger.debug(f"🔍 Processing event in else block: {type(event)} = {event}")
                     if isinstance(event, str):
                         current_turn_text += event
                         yield event
@@ -485,7 +498,20 @@ class BasicMemoryAgent(AgentInterface):
                         logger.warning(
                             f"LLM {getattr(self._llm, 'model', '')} has no native tool support. Switching to prompt mode."
                         )
+                        logger.info(f"🔄 Processing __API_NOT_SUPPORT_TOOLS__ signal")
+                        logger.info(f"🔄 Current prompt_mode_flag: {self.prompt_mode_flag}")
+                        # Добавляем детальное логирование
+                        if self._tool_manager:
+                            available_tools = getattr(self._tool_manager, '_formatted_tools_openai', [])
+                            tool_names = [tool.get('function', {}).get('name', 'unknown') for tool in available_tools]
+                            logger.warning(
+                                f"Available tools that will be used in prompt mode: {tool_names}"
+                            )
+                        logger.warning(
+                            f"Prompt mode will use JSON detection for tool calls instead of native API support"
+                        )
                         self.prompt_mode_flag = True
+                        logger.info(f"🔄 Set prompt_mode_flag to: {self.prompt_mode_flag}")
                         if self._tool_manager:
                             self._tool_manager.disable()
                         if self._json_detector:
@@ -537,6 +563,7 @@ class BasicMemoryAgent(AgentInterface):
                         messages.append(
                             {"role": "user", "content": combined_results_str}
                         )
+                        logger.info(f"🔧 Tool results added to messages: {combined_results_str}")
                 continue
 
             elif pending_tool_calls and assistant_message_for_api:
@@ -571,11 +598,15 @@ class BasicMemoryAgent(AgentInterface):
 
                 if tool_results_for_llm:
                     messages.extend(tool_results_for_llm)
+                    logger.info(f"🔧 Tool results added to messages: {tool_results_for_llm}")
                 continue
 
             else:
                 if current_turn_text:
                     self._add_message(current_turn_text, "assistant")
+                    logger.info(f"💬 Final response generated: {current_turn_text}")
+                else:
+                    logger.warning("❌ No response generated after tool execution")
                 return
 
     def _chat_function_factory(
@@ -636,6 +667,7 @@ class BasicMemoryAgent(AgentInterface):
                 logger.debug(
                     f"Starting OpenAI tool interaction loop with {len(tools)} tools."
                 )
+                logger.info(f"🔧 Tool mode: {tool_mode}, Tools count: {len(tools) if tools else 0}")
                 async for output in self._openai_tool_interaction_loop(
                     messages, tools if tools else []
                 ):
@@ -657,6 +689,18 @@ class BasicMemoryAgent(AgentInterface):
                         yield text_chunk
                         complete_response += text_chunk
                 if complete_response:
+                    # Try to parse JSON response and extract the "response" field
+                    try:
+                        import json
+                        parsed_json = json.loads(complete_response)
+                        if isinstance(parsed_json, dict) and "response" in parsed_json:
+                            # Extract only the response field from JSON
+                            complete_response = parsed_json["response"]
+                            logger.info(f"Extracted response from JSON: {complete_response}")
+                    except (json.JSONDecodeError, KeyError):
+                        # If not valid JSON or no response field, use as-is
+                        logger.debug("Response is not valid JSON or missing response field, using as-is")
+                    
                     self._add_message(complete_response, "assistant")
 
         return chat_with_memory

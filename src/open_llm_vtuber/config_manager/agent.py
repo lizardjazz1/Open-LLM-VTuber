@@ -35,26 +35,11 @@ class BasicMemoryAgentConfig(I18nMixin, BaseModel):
     mcp_enabled_servers: Optional[List[str]] = Field([], alias="mcp_enabled_servers")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "llm_provider": Description(
-            en="LLM provider to use for this agent",
-            zh="Basic Memory Agent 智能体使用的大语言模型选项",
-        ),
-        "faster_first_response": Description(
-            en="Whether to respond as soon as encountering a comma in the first sentence to reduce latency (default: True)",
-            zh="是否在第一句回应时遇上逗号就直接生成音频以减少首句延迟（默认：True）",
-        ),
-        "segment_method": Description(
-            en="Method for segmenting sentences: 'regex' or 'pysbd' (default: 'pysbd')",
-            zh="分割句子的方法：'regex' 或 'pysbd'（默认：'pysbd'）",
-        ),
-        "use_mcpp": Description(
-            en="Whether to use MCP (Model Context Protocol) for the agent (default: True)",
-            zh="是否使用为智能体启用 MCP (Model Context Protocol) Plus（默认：False）",
-        ),
-        "mcp_enabled_servers": Description(
-            en="List of MCP servers to enable for the agent",
-            zh="为智能体启用 MCP 服务器列表",
-        ),
+        "llm_provider": Description(i18n_key="llm_provider_to_use_for_this_agent"),
+        "faster_first_response": Description(i18n_key="whether_to_respond_as_soon_as_encountering_a_comma_in_the_first_sentence_to_reduce_latency_default_true"),
+        "segment_method": Description(i18n_key="method_for_segmenting_sentences_regex_or_pysbd_default_pysbd"),
+        "use_mcpp": Description(i18n_key="whether_to_use_mcp_model_context_protocol_for_the_agent_default_true"),
+        "mcp_enabled_servers": Description(i18n_key="list_of_mcp_servers_to_enable_for_the_agent"),
     }
 
 
@@ -65,12 +50,8 @@ class Mem0VectorStoreConfig(I18nMixin, BaseModel):
     config: Dict = Field(..., alias="config")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "provider": Description(
-            en="Vector store provider (e.g., qdrant)", zh="向量存储提供者（如 qdrant）"
-        ),
-        "config": Description(
-            en="Provider-specific configuration", zh="提供者特定配置"
-        ),
+        "provider": Description(i18n_key="vector_store_provider_eg_qdrant"),
+        "config": Description(i18n_key="provider_specific_configuration"),
     }
 
 
@@ -81,10 +62,8 @@ class Mem0LLMConfig(I18nMixin, BaseModel):
     config: Dict = Field(..., alias="config")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "provider": Description(en="LLM provider name", zh="语言模型提供者名称"),
-        "config": Description(
-            en="Provider-specific configuration", zh="提供者特定配置"
-        ),
+        "provider": Description(i18n_key="llm_provider_name"),
+        "config": Description(i18n_key="provider_specific_configuration"),
     }
 
 
@@ -95,10 +74,8 @@ class Mem0EmbedderConfig(I18nMixin, BaseModel):
     config: Dict = Field(..., alias="config")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "provider": Description(en="Embedder provider name", zh="嵌入模型提供者名称"),
-        "config": Description(
-            en="Provider-specific configuration", zh="提供者特定配置"
-        ),
+        "provider": Description(i18n_key="embedder_provider_name"),
+        "config": Description(i18n_key="provider_specific_configuration"),
     }
 
 
@@ -110,9 +87,9 @@ class Mem0Config(I18nMixin, BaseModel):
     embedder: Mem0EmbedderConfig = Field(..., alias="embedder")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "vector_store": Description(en="Vector store configuration", zh="向量存储配置"),
-        "llm": Description(en="LLM configuration", zh="语言模型配置"),
-        "embedder": Description(en="Embedder configuration", zh="嵌入模型配置"),
+        "vector_store": Description(i18n_key="vector_store_configuration"),
+        "llm": Description(i18n_key="llm_configuration"),
+        "embedder": Description(i18n_key="embedder_configuration"),
     }
 
 
@@ -128,20 +105,10 @@ class HumeAIConfig(I18nMixin, BaseModel):
     idle_timeout: int = Field(15, alias="idle_timeout")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "api_key": Description(
-            en="API key for Hume AI service", zh="Hume AI 服务的 API 密钥"
-        ),
-        "host": Description(
-            en="Host URL for Hume AI service (default: api.hume.ai)",
-            zh="Hume AI 服务的主机地址（默认：api.hume.ai）",
-        ),
-        "config_id": Description(
-            en="Configuration ID for EVI settings", zh="EVI 配置 ID"
-        ),
-        "idle_timeout": Description(
-            en="Idle timeout in seconds before disconnecting (default: 15)",
-            zh="空闲超时断开连接的秒数（默认：15）",
-        ),
+        "api_key": Description(i18n_key="api_key_for_hume_ai_service"),
+        "host": Description(i18n_key="host_url_for_hume_ai_service_default_apihumeai"),
+        "config_id": Description(i18n_key="configuration_id_for_evi_settings"),
+        "idle_timeout": Description(i18n_key="idle_timeout_in_seconds_before_disconnecting_default_15"),
     }
 
 
@@ -158,17 +125,9 @@ class LettaConfig(I18nMixin, BaseModel):
     segment_method: Literal["regex", "pysbd"] = Field("pysbd", alias="segment_method")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "host": Description(
-            en="Host address for the Letta server", zh="Letta服务器的主机地址"
-        ),
-        "port": Description(
-            en="Port number for the Letta server (default: 8283)",
-            zh="Letta服务器的端口号（默认：8283）",
-        ),
-        "id": Description(
-            en="Agent instance ID running on the Letta server",
-            zh="指定Letta服务器上运行的Agent实例id",
-        ),
+        "host": Description(i18n_key="host_address_for_the_letta_server"),
+        "port": Description(i18n_key="port_number_for_the_letta_server_default_8283"),
+        "id": Description(i18n_key="agent_instance_id_running_on_the_letta_server"),
     }
 
 
@@ -183,16 +142,10 @@ class AgentSettings(I18nMixin, BaseModel):
     letta_agent: Optional[LettaConfig] = Field(None, alias="letta_agent")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "basic_memory_agent": Description(
-            en="Configuration for basic memory agent", zh="基础记忆代理配置"
-        ),
-        "mem0_agent": Description(en="Configuration for Mem0 agent", zh="Mem0代理配置"),
-        "hume_ai_agent": Description(
-            en="Configuration for Hume AI agent", zh="Hume AI 代理配置"
-        ),
-        "letta_agent": Description(
-            en="Configuration for Letta agent", zh="Letta 代理配置"
-        ),
+        "basic_memory_agent": Description(i18n_key="configuration_for_basic_memory_agent"),
+        "mem0_agent": Description(i18n_key="configuration_for_mem0_agent"),
+        "hume_ai_agent": Description(i18n_key="configuration_for_hume_ai_agent"),
+        "letta_agent": Description(i18n_key="configuration_for_letta_agent"),
     }
 
 
@@ -206,21 +159,9 @@ class AgentConfig(I18nMixin, BaseModel):
     llm_configs: StatelessLLMConfigs = Field(..., alias="llm_configs")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "conversation_agent_choice": Description(
-            en="Type of conversation agent to use", zh="要使用的对话代理类型"
-        ),
-        "agent_settings": Description(
-            en="Settings for different agent types", zh="不同代理类型的设置"
-        ),
-        "llm_configs": Description(
-            en="Pool of LLM provider configurations", zh="语言模型提供者配置池"
-        ),
-        "faster_first_response": Description(
-            en="Whether to respond as soon as encountering a comma in the first sentence to reduce latency (default: True)",
-            zh="是否在第一句回应时遇上逗号就直接生成音频以减少首句延迟（默认：True）",
-        ),
-        "segment_method": Description(
-            en="Method for segmenting sentences: 'regex' or 'pysbd' (default: 'pysbd')",
-            zh="分割句子的方法：'regex' 或 'pysbd'（默认：'pysbd'）",
-        ),
+        "conversation_agent_choice": Description(i18n_key="type_of_conversation_agent_to_use"),
+        "agent_settings": Description(i18n_key="settings_for_different_agent_types"),
+        "llm_configs": Description(i18n_key="pool_of_llm_provider_configurations"),
+        "faster_first_response": Description(i18n_key="whether_to_respond_as_soon_as_encountering_a_comma_in_the_first_sentence_to_reduce_latency_default_true"),
+        "segment_method": Description(i18n_key="method_for_segmenting_sentences_regex_or_pysbd_default_pysbd"),
     }

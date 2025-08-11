@@ -1,5 +1,5 @@
 # config_manager/character.py
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, BaseModel
 from typing import Dict, ClassVar
 from .i18n import I18nMixin, Description
 from .asr import ASRConfig
@@ -8,6 +8,15 @@ from .vad import VADConfig
 from .tts_preprocessor import TTSPreprocessorConfig
 
 from .agent import AgentConfig
+
+
+class Live2DConfig(BaseModel):
+    """Live2D configuration settings."""
+    
+    enable_expressions: bool = Field(True, description="Enable Live2D expressions")
+    enable_motions: bool = Field(True, description="Enable Live2D motions")
+    idle_motion_interval: int = Field(8, description="Idle motion interval in seconds")
+    expression_sensitivity: float = Field(0.8, description="Expression sensitivity")
 
 
 class CharacterConfig(I18nMixin):
@@ -24,49 +33,25 @@ class CharacterConfig(I18nMixin):
     asr_config: ASRConfig = Field(..., alias="asr_config")
     tts_config: TTSConfig = Field(..., alias="tts_config")
     vad_config: VADConfig = Field(..., alias="vad_config")
+    live2d_config: Live2DConfig = Field(default_factory=Live2DConfig, alias="live2d_config")
     tts_preprocessor_config: TTSPreprocessorConfig = Field(
         ..., alias="tts_preprocessor_config"
     )
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "conf_name": Description(
-            en="Name of the character configuration", zh="角色配置名称"
-        ),
-        "conf_uid": Description(
-            en="Unique identifier for the character configuration",
-            zh="角色配置唯一标识符",
-        ),
-        "live2d_model_name": Description(
-            en="Name of the Live2D model to use", zh="使用的Live2D模型名称"
-        ),
-        "character_name": Description(
-            en="Name of the AI character in conversation", zh="对话中AI角色的名字"
-        ),
-        "persona_prompt": Description(
-            en="Persona prompt. The persona of your character.", zh="角色人设提示词"
-        ),
-        "agent_config": Description(
-            en="Configuration for the conversation agent", zh="对话代理配置"
-        ),
-        "asr_config": Description(
-            en="Configuration for Automatic Speech Recognition", zh="语音识别配置"
-        ),
-        "tts_config": Description(
-            en="Configuration for Text-to-Speech", zh="语音合成配置"
-        ),
-        "vad_config": Description(
-            en="Configuration for Voice Activity Detection", zh="语音活动检测配置"
-        ),
-        "tts_preprocessor_config": Description(
-            en="Configuration for Text-to-Speech Preprocessor",
-            zh="语音合成预处理器配置",
-        ),
-        "human_name": Description(
-            en="Name of the human user in conversation", zh="对话中人类用户的名字"
-        ),
-        "avatar": Description(
-            en="Avatar image path for the character", zh="角色头像图片路径"
-        ),
+        "conf_name": Description(i18n_key="config.character.conf_name"),
+        "conf_uid": Description(i18n_key="config.character.conf_uid"),
+        "live2d_model_name": Description(i18n_key="config.character.live2d_model_name"),
+        "character_name": Description(i18n_key="config.character.character_name"),
+        "persona_prompt": Description(i18n_key="config.character.persona_prompt"),
+        "agent_config": Description(i18n_key="config.character.agent_config"),
+        "asr_config": Description(i18n_key="config.character.asr_config"),
+        "tts_config": Description(i18n_key="config.character.tts_config"),
+        "vad_config": Description(i18n_key="config.character.vad_config"),
+        "live2d_config": Description(i18n_key="config.character.live2d_config"),
+        "tts_preprocessor_config": Description(i18n_key="config.character.tts_preprocessor_config"),
+        "human_name": Description(i18n_key="config.character.human_name"),
+        "avatar": Description(i18n_key="config.character.avatar"),
     }
 
     @field_validator("persona_prompt")

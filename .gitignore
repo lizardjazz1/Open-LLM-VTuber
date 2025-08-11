@@ -56,7 +56,6 @@ models/*
 !models/piper_voice
 models/piper_voice/*
 
-
 # Legacy and specific directories
 legacy/
 chat_history/
@@ -74,3 +73,22 @@ conf.yaml.backup
 tmp/
 private/
 mcp_servers.json
+
+# Development and external directories
+installs/
+externals/
+Open-LLM-VTuber-Web/
+documentation/
+
+# Development tools
+.cursor/
+.vscode/
+Start_docs/
+upgrade_codes/
+
+# Temporary files
+test_*.py
+test_*.mp3
+update_*.py
+migration_*.py
+*.backup
