@@ -77,6 +77,10 @@ class BasicMemoryAgent(AgentInterface):
         self._tool_prompts = tool_prompts or {}
         self._interrupt_handled = False
         self.prompt_mode_flag = False
+        # First-response tuning state (applies once per session)
+        self._first_response_pending = True
+        self._llm_first_top_p = 0.8
+        self._llm_first_max_tokens = 512
 
         self._tool_manager = tool_manager
         self._tool_executor = tool_executor
@@ -996,7 +1000,24 @@ class BasicMemoryAgent(AgentInterface):
                 return
             else:
                 logger.info("Starting simple chat completion.")
-                token_stream = self._llm.chat_completion(messages, self._system)
+                # Apply lighter sampling limits only for the very first response
+                original_top_p = getattr(self._llm, "top_p", None)
+                original_max_tokens = getattr(self._llm, "max_tokens", None)
+                try:
+                    if self._first_response_pending:
+                        if hasattr(self._llm, "top_p"):
+                            self._llm.top_p = self._llm_first_top_p
+                        if hasattr(self._llm, "max_tokens"):
+                            self._llm.max_tokens = self._llm_first_max_tokens
+                    token_stream = self._llm.chat_completion(messages, self._system)
+                finally:
+                    # Restore defaults immediately after obtaining the stream
+                    if self._first_response_pending:
+                        if original_top_p is not None:
+                            self._llm.top_p = original_top_p
+                        if original_max_tokens is not None:
+                            self._llm.max_tokens = original_max_tokens
+                        self._first_response_pending = False
                 complete_response = ""
                 async for event in token_stream:
                     text_chunk = ""
