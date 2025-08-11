@@ -4,25 +4,79 @@ from typing import Any, Dict, List, Optional
 
 from ..memory.memory_service import MemoryService
 from ..memory.memory_schema import MemoryItemTyped, MemoryKind
+from ..config_manager.system import SystemConfig
+from ..config_manager.character import CharacterConfig
 from .interface import VtuberMemoryInterface
+from .providers.memgpt_provider import MemGPTProvider
+from .providers.letta_provider import LettaProvider
 
 
 class VtuberMemoryService(VtuberMemoryInterface):
     """Default vtuber memory service.
 
-    Wraps current MemoryService (Chroma-based) and exposes a simple
-    interface that can be replaced by more advanced providers later.
+    Wraps current MemoryService (Chroma-based) by default and can switch to
+    other providers using CharacterConfig.vtuber_memory.provider.
     """
 
-    def __init__(self, enabled: bool = True) -> None:
-        self._backend = MemoryService(enabled=enabled)
+    def __init__(
+        self,
+        enabled: bool = True,
+        *,
+        system_config: SystemConfig | None = None,
+        character_config: CharacterConfig | None = None,
+    ) -> None:
+        provider_name = (
+            (
+                getattr(
+                    getattr(character_config, "vtuber_memory", None), "provider", None
+                )
+                or "default"
+            )
+            .strip()
+            .lower()
+        )
+        self._backend: VtuberMemoryInterface
+        if provider_name == "memgpt":
+            # Read paths and embeddings settings from system_config
+            chroma_path = (
+                getattr(system_config, "chroma_persist_dir", "cache/chroma")
+                if system_config
+                else "cache/chroma"
+            )
+            collection = (
+                getattr(system_config, "chroma_collection", "vtuber_memory")
+                if system_config
+                else "vtuber_memory"
+            )
+            embeddings_model = (
+                getattr(
+                    system_config,
+                    "embeddings_model",
+                    "paraphrase-multilingual-MiniLM-L12-v2",
+                )
+                if system_config
+                else "paraphrase-multilingual-MiniLM-L12-v2"
+            )
+            self._backend = MemGPTProvider(
+                chroma_path=chroma_path,
+                collection=collection,
+                embeddings_model=embeddings_model,
+            )
+        elif provider_name == "letta":
+            self._backend = LettaProvider()
+        else:
+            self._backend = MemoryService(enabled=enabled)
 
     @property
     def enabled(self) -> bool:
-        return bool(self._backend and self._backend.enabled)
+        return bool(self._backend and getattr(self._backend, "enabled", False))
 
     def add_memory(self, item: Dict[str, Any]) -> int:
         try:
+            if hasattr(self._backend, "add_memory") and not isinstance(
+                self._backend, MemoryService
+            ):
+                return self._backend.add_memory(item)
             typed = MemoryItemTyped(
                 text=str(item.get("text", "")),
                 kind=MemoryKind(str(item.get("kind", "user"))),
@@ -38,14 +92,22 @@ class VtuberMemoryService(VtuberMemoryInterface):
                 if item.get("context_window")
                 else None,
             )
-            return self._backend.add_memory(typed)
+            return (
+                self._backend.add_memory(typed)
+                if isinstance(self._backend, MemoryService)
+                else 0
+            )
         except Exception:
             return 0
 
     def add_facts(
         self, facts: List[str], conf_uid: str, history_uid: str, kind: str = "chat"
     ) -> int:
-        return self._backend.add_facts(facts, conf_uid, history_uid, kind)
+        return (
+            self._backend.add_facts(facts, conf_uid, history_uid, kind)
+            if isinstance(self._backend, MemoryService)
+            else self._backend.add_facts(facts, conf_uid, history_uid, kind)
+        )
 
     def add_facts_with_meta(
         self,

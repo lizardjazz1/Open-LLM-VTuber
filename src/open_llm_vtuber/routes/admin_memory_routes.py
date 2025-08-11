@@ -48,7 +48,9 @@ async def memory_search(
 
 
 @router.post("/memory/edit")
-async def memory_edit(req: MemoryEditRequest, ctx: ServiceContext = Depends(get_context)):
+async def memory_edit(
+    req: MemoryEditRequest, ctx: ServiceContext = Depends(get_context)
+):
     svc = ctx.vtuber_memory_service or ctx.memory_service
     if not svc or not svc.enabled:
         raise HTTPException(status_code=503, detail="Memory not available")
@@ -67,7 +69,10 @@ async def memory_edit(req: MemoryEditRequest, ctx: ServiceContext = Depends(get_
         "tags": [],
     }
     svc.add_facts_with_meta(
-        [entry], meta.get("conf_uid", ""), meta.get("history_uid", ""), meta.get("kind", "chat")
+        [entry],
+        meta.get("conf_uid", ""),
+        meta.get("history_uid", ""),
+        meta.get("kind", "chat"),
     )
     return {"status": "ok"}
 
@@ -88,7 +93,9 @@ async def relationship_update(
     from ..vtuber_memory.relationships import RelationshipsDB
 
     # Choose path from system_config; fallback to local file
-    db_path = getattr(ctx.system_config, "relationships_db_path", "cache/relationships.sqlite3")
+    db_path = getattr(
+        ctx.system_config, "relationships_db_path", "cache/relationships.sqlite3"
+    )
     db = RelationshipsDB(db_path)
 
     out: Dict[str, Any] = {}

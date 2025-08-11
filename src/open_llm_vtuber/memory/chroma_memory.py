@@ -36,7 +36,13 @@ class ChromaMemory:
         collection: str = "vtuber_memory",
         model_name: str = "paraphrase-multilingual-MiniLM-L12-v2",
         embedding_dim: Optional[int] = None,
+        **kwargs: Any,
     ) -> None:
+        # Allow overrides via kwargs for future SystemConfig plumbing
+        persist_dir = str(kwargs.get("persist_dir", persist_dir))
+        collection = str(kwargs.get("collection", collection))
+        model_name = str(kwargs.get("model_name", model_name))
+
         self.persist_dir = persist_dir
         self.collection_name = collection
         self.model_name = model_name

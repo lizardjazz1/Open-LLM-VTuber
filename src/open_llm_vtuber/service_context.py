@@ -37,6 +37,7 @@ from .vad.vad_interface import VADInterface
 from .twitch import TwitchClient, TwitchMessage
 from .memory.memory_service import MemoryService
 from .vtuber_memory import VtuberMemoryService, VtuberMemoryInterface
+from .vtuber_memory.scheduler import ConsolidationScheduler
 
 # Import i18n system
 from .i18n import t
@@ -105,6 +106,7 @@ class ServiceContext:
         self.memory_top_k: int = 4
         self.memory_min_importance: float | None = None
         self.memory_kinds: list[str] | None = None
+        self._consolidation_scheduler: ConsolidationScheduler | None = None
 
         # Twitch integration
         self.twitch_client: TwitchClient | None = None
@@ -969,10 +971,29 @@ class ServiceContext:
                     use_vm = bool(
                         getattr(self.character_config.vtuber_memory, "enabled", True)
                     )
-                self.vtuber_memory_service = VtuberMemoryService(enabled=use_vm)
+                self.vtuber_memory_service = VtuberMemoryService(
+                    enabled=use_vm,
+                    system_config=self.system_config,
+                    character_config=self.character_config,
+                )
             except Exception as e:
                 logger.warning(f"VtuberMemoryService init failed: {e}")
                 self.vtuber_memory_service = VtuberMemoryService(enabled=False)
+
+        # Start consolidation scheduler using system config interval
+        try:
+            interval = int(
+                getattr(self.system_config, "memory_consolidation_interval_sec", 900)
+                or 900
+            )
+            if interval >= 60:
+                if self._consolidation_scheduler is None:
+                    self._consolidation_scheduler = ConsolidationScheduler(
+                        interval_sec=interval, trigger=self.trigger_memory_consolidation
+                    )
+                await self._consolidation_scheduler.start()
+        except Exception:
+            pass
 
         if (
             self.agent_engine is not None
@@ -1478,6 +1499,13 @@ class ServiceContext:
                 )
             )
             raise e
+
+    async def on_stream_end(self) -> None:
+        """Hook to call when a stream/session ends to consolidate memory immediately."""
+        try:
+            await self.trigger_memory_consolidation(reason="stream_end")
+        except Exception as e:
+            logger.debug(f"stream_end consolidation skipped: {e}")
 
 
 def deep_merge(dict1, dict2):

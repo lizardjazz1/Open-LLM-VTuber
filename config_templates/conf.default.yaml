@@ -41,6 +41,9 @@ system_config:
   # Memory module
   relationships_db_path: 'cache/relationships.sqlite3'
   memory_consolidation_interval_sec: 900
+  chroma_persist_dir: 'cache/chroma'
+  chroma_collection: 'vtuber_memory'
+  embeddings_model: 'paraphrase-multilingual-MiniLM-L12-v2'
 
 # configuration for the default character
 character_config:

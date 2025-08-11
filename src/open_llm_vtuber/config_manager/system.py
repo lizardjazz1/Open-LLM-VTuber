@@ -45,6 +45,21 @@ class SystemConfig(I18nMixin):
         alias="memory_consolidation_interval_sec",
         description="Periodic consolidation interval in seconds (>=60).",
     )
+    chroma_persist_dir: str = Field(
+        default="cache/chroma",
+        alias="chroma_persist_dir",
+        description="ChromaDB persistent directory.",
+    )
+    chroma_collection: str = Field(
+        default="vtuber_memory",
+        alias="chroma_collection",
+        description="ChromaDB collection name.",
+    )
+    embeddings_model: str = Field(
+        default="paraphrase-multilingual-MiniLM-L12-v2",
+        alias="embeddings_model",
+        description="Embeddings model used for memory (for default backend and MemGPT).",
+    )
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "conf_version": Description(i18n_key="config.conf_version"),
@@ -61,6 +76,9 @@ class SystemConfig(I18nMixin):
         "memory_consolidation_interval_sec": Description(
             i18n_key="config.memory_consolidation_interval_sec"
         ),
+        "chroma_persist_dir": Description(i18n_key="config.chroma_persist_dir"),
+        "chroma_collection": Description(i18n_key="config.chroma_collection"),
+        "embeddings_model": Description(i18n_key="config.embeddings_model"),
     }
 
     @model_validator(mode="after")
