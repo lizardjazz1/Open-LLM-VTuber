@@ -11,7 +11,7 @@ system_config:
   memory_consolidation_interval_sec: 900
   chroma_persist_dir: 'cache/chroma'
   chroma_collection: 'vtuber_memory'
-  embeddings_model: 'text-embedding-nomic-embed-text-v1'  # Модель эмбеддингов, загружаемая LM Studio по требованию
+  embeddings_model: 'paraphrase-multilingual-MiniLM-L12-v2'  # Официальная модель, которую вы установили в LM Studio
   embeddings_api_key: 'lm-studio'  # Любая непустая строка
   embeddings_api_base: 'http://127.0.0.1:1234/v1'  # OpenAI-совместимый эндпоинт LM Studio
 
