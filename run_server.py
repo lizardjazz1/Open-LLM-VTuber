@@ -119,6 +119,36 @@ def init_logger(console_log_level: str = "INFO") -> None:
     configure_stdlib_bridge()
 
 
+def _supports_ansi_hyperlinks() -> bool:
+    """Best-effort detection of OSC 8 hyperlink support in the current terminal."""
+    if os.environ.get("WT_SESSION"):
+        return True  # Windows Terminal
+    term_prog = os.environ.get("TERM_PROGRAM", "").lower()
+    if term_prog in ("wezterm", "iterm.app", "vscode"):
+        return True
+    term = os.environ.get("TERM", "").lower()
+    if "xterm" in term or "screen" in term:
+        return True
+    # Fallback: assume POSIX terminals likely support; on classic cmd.exe return False
+    return sys.platform != "win32"
+
+
+def make_hyperlink(url: str, label: str | None = None) -> str:
+    """Return an ANSI OSC 8 hyperlink if supported, otherwise plain URL.
+
+    Args:
+        url: Target URL.
+        label: Optional label to display instead of the raw URL.
+
+    Returns:
+        str: Hyperlink escape sequence or plain URL.
+    """
+    text = label or url
+    if _supports_ansi_hyperlinks():
+        return f"\x1b]8;;{url}\x1b\\{text}\x1b]8;;\x1b\\"
+    return url
+
+
 def check_frontend_submodule(lang=None):
     """
     Check if the frontend submodule is initialized. If not, attempt to initialize it.
@@ -266,6 +296,9 @@ def run(console_log_level: str):
     logger.info(
         t("server.starting_on", host=server_config.host, port=server_config.port)
     )
+    # Also print a clickable hyperlink (where supported)
+    server_url = f"http://{server_config.host}:{server_config.port}/"
+    logger.info(f"🔗 {make_hyperlink(server_url)}")
     uvicorn.run(
         app=server.app,
         host=server_config.host,
