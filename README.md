@@ -17,11 +17,7 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Open-LLM-VTuber/Open-LLM-VTuber)
 
-<<<<<<< HEAD
-English README | [中文README](https://github.com/t41372/Open-LLM-VTuber/blob/main/README.CN.md)
-=======
-Русский README | [English README](https://github.com/lizardjazz1/Open-LLM-VTuber/blob/main/README.EN.md) | [中文README](https://github.com/lizardjazz1/Open-LLM-VTuber/blob/main/README.CN.md)
->>>>>>> 461513e (🌍 Complete i18n system implementation)
+Русский README | [English README](README.EN.md) | [中文README](README.CN.md)
 
 [Documentation](https://open-llm-vtuber.github.io/docs/quick-start) | [![Roadmap](https://img.shields.io/badge/Roadmap-GitHub_Project-yellow)](https://github.com/orgs/Open-LLM-VTuber/projects/2)
 
@@ -87,7 +83,7 @@ English README | [中文README](https://github.com/t41372/Open-LLM-VTuber/blob/m
 
 - 🧠 **Обширная поддержка моделей**:
   - 🤖 Большие языковые модели (LLM): Ollama, OpenAI (и любой совместимый с OpenAI API), Gemini, Claude, Mistral, DeepSeek, Zhipu AI, GGUF, LM Studio, vLLM и др.
-  - 🎙️ Автоматическое распознавание речи (ASR): sherpa-onnx, FunASR, Faster-Whisper, Whisper.cpp, Whisper, Groq Whisper, Azure ASR и др.
+  - 🎙️ Автоматическое распознавание речи (ASR): sherpa-оннх, FunASR, Faster-Whisper, Whisper.cpp, Whisper, Groq Whisper, Azure ASR и др.
   - 🔊 Преобразование текста в речь (TTS): sherpa-onnx, pyttsx3, MeloTTS, Coqui-TTS, GPTSoVITS, Bark, CosyVoice, Edge TTS, Fish Audio, Azure TTS и др.
 
 - 🔧 **Высокая настраиваемость**:
@@ -109,7 +105,7 @@ English README | [中文README](https://github.com/t41372/Open-LLM-VTuber/blob/m
 
 
 
-## ☝ Обновление
+## ☝ Обновление  
 > :warning: `v1.0.0` имеет критические изменения и требует повторного развертывания. Вы *можете* все еще обновляться через метод ниже, но файл `conf.yaml` несовместим и большинство зависимостей нужно переустановить с `uv`. Для тех, кто пришел из версий до `v1.0.0`, я рекомендую развернуть этот проект снова с [последним руководством по развертыванию](https://open-llm-vtuber.github.io/docs/quick-start).
 
 Пожалуйста, используйте `uv run update.py` для обновления, если вы установили любые версии позже `v1.0.0`.
@@ -143,7 +139,6 @@ English README | [中文README](https://github.com/t41372/Open-LLM-VTuber/blob/m
 
 Этот контент использует примеры данных, принадлежащие и защищенные авторским правом Live2D Inc. Примеры данных используются в соответствии с условиями, установленными Live2D Inc. (См. [Live2D Free Material License Agreement](https://www.live2d.jp/en/terms/live2d-free-material-license-agreement/) и [Terms of Use](https://www.live2d.com/eula/live2d-sample-model-terms_en.html)).
 
-<<<<<<< HEAD
 Note: For commercial use, especially by medium or large-scale enterprises, the use of these Live2D sample models may be subject to additional licensing requirements. If you plan to use this project commercially, please ensure that you have the appropriate permissions from Live2D Inc., or use versions of the project without these models.
 
 
@@ -156,21 +151,5 @@ Thanks our contributors and maintainers for making this project possible.
 
 
 ## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=t41372/open-llm-vtuber&type=Date)](https://star-history.com/#t41372/open-llm-vtuber&Date)
-=======
-Примечание: Для коммерческого использования, особенно средними или крупными предприятиями, использование этих Live2D примеров моделей может подлежать дополнительным лицензионным требованиям. Если вы планируете использовать этот проект коммерчески, пожалуйста, убедитесь, что у вас есть соответствующие разрешения от Live2D Inc., или используйте версии проекта без этих моделей.
->>>>>>> 461513e (🌍 Complete i18n system implementation)
-
-
-## Участники
-Спасибо нашим участникам и сопровождающим за то, что сделали этот проект возможным.
-
-<a href="https://github.com/Open-LLM-VTuber/Open-LLM-VTuber/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Open-LLM-VTuber/Open-LLM-VTuber" />
-</a>
-
-
-## История звезд
 
 [![Star History Chart](https://api.star-history.com/svg?repos=t41372/open-llm-vtuber&type=Date)](https://star-history.com/#t41372/open-llm-vtuber&Date) 
