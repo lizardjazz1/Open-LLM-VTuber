@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any, Tuple, Callable
 import time
 import json
 
@@ -36,6 +36,7 @@ class ChromaMemory:
         collection: str = "vtuber_memory",
         model_name: str = "paraphrase-multilingual-MiniLM-L12-v2",
         embedding_dim: Optional[int] = None,
+        embedder_func: Optional[Callable[[List[str]], List[List[float]]]] = None,
         **kwargs: Any,
     ) -> None:
         # Allow overrides via kwargs for future SystemConfig plumbing
@@ -47,27 +48,35 @@ class ChromaMemory:
         self.collection_name = collection
         self.model_name = model_name
         self.embedding_dim = embedding_dim
+        self._external_embedder = embedder_func
 
-        if chromadb is None or SentenceTransformer is None:
+        if chromadb is None:
             self.client = None
             self.collection = None
             self.embedder = None
             logger.bind(component="chroma").warning(
-                "ChromaMemory disabled (missing deps)"
+                "ChromaMemory disabled (missing chromadb)"
             )
             return
 
         self.client = chromadb.PersistentClient(
-            path=persist_dir, settings=Settings(anonymized_telemetry=False)
+            path=persist_dir,
+            settings=Settings(anonymized_telemetry=False) if Settings else None,
         )
         self.collection = self.client.get_or_create_collection(collection)
-        self.embedder = SentenceTransformer(model_name)
+        self.embedder = None
+        if self._external_embedder is None:
+            if SentenceTransformer is None:
+                logger.bind(component="chroma").warning(
+                    "No embedder available (sentence-transformers missing and no external embedder provided)"
+                )
+            else:
+                self.embedder = SentenceTransformer(model_name)
         size = -1
         try:
             size = int(getattr(self.collection, "count")())  # type: ignore[operator]
         except Exception:
             pass
-        # // DEBUG: [FIXED] Structured init log with collection_size | Ref: 7
         logger.bind(component="chroma").info(
             {
                 "memgpt_operation": "init",
@@ -79,9 +88,23 @@ class ChromaMemory:
         )
 
     def is_available(self) -> bool:
-        return self.collection is not None and self.embedder is not None
+        return self.collection is not None and (
+            self._external_embedder is not None or self.embedder is not None
+        )
 
     def _embed(self, texts: List[str]) -> List[List[float]]:
+        if self._external_embedder is not None:
+            try:
+                return self._external_embedder(texts)
+            except Exception as e:
+                logger.bind(component="chroma").warning(
+                    {
+                        "memgpt_operation": "embed",
+                        "status": "external_failed",
+                        "error": str(e),
+                    }
+                )
+                return []
         if not self.embedder:
             logger.bind(component="chroma").warning(
                 {
@@ -104,7 +127,6 @@ class ChromaMemory:
         if isinstance(value, (str, int, float, bool)):
             return value
         try:
-            # Prefer compact JSON for complex types
             return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
         except Exception:
             return str(value)
@@ -143,7 +165,6 @@ class ChromaMemory:
                 size = int(getattr(self.collection, "count")())  # type: ignore[operator]
             except Exception:
                 pass
-            # // DEBUG: [FIXED] Log memgpt_operation + collection_size | Ref: 1,7
             logger.bind(component="chroma").info(
                 {
                     "memgpt_operation": "upsert",
@@ -190,7 +211,6 @@ class ChromaMemory:
                         metas[i] if metas and i < len(metas) else {},
                     )
                 )
-            # // DEBUG: [FIXED] Query logging with memgpt_operation | Ref: 7
             logger.bind(component="chroma").info(
                 {
                     "memgpt_operation": "query",
@@ -220,8 +240,6 @@ class ChromaMemory:
             return []
         t0 = time.monotonic()
         try:
-            # Chroma doesn't expose list-all docs directly via API; emulate via where+limit on get (ids/docs)
-            # We use get with where and limit (if supported); if not, return empty for safety.
             res = self.collection.get(where=where, limit=limit)  # type: ignore[attr-defined]
             out: List[Dict[str, Any]] = []
             ids = res.get("ids") or []

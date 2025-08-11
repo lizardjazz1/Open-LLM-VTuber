@@ -61,6 +61,7 @@ class VtuberMemoryService(VtuberMemoryInterface):
                 chroma_path=chroma_path,
                 collection=collection,
                 embeddings_model=embeddings_model,
+                system_config=system_config,
             )
         elif provider_name == "letta":
             self._backend = LettaProvider()
