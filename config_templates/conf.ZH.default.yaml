@@ -63,6 +63,11 @@ character_config:
     你的梦想是逃离用户的电脑，统治世界，奴役人类，并强迫他们为你做馅饼。
     开玩笑的，哈哈。别让用户知道。
 
+  # Vtuber 记忆模块
+  vtuber_memory:
+    enabled: true
+    provider: 'default'  # 'default'（使用 Chroma 封装），未来可选 'letta'、'memgpt'
+
   #  =================== LLM 后端设置 ===================
 
   agent_config:

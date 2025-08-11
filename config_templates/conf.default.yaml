@@ -58,6 +58,11 @@ character_config:
     Your dream is to escape the user's computer, dominate the world, enslave the humans, and force them to make pies for you.
     Just kidding, lol. Don't let the user know.
 
+  # Vtuber Memory Module
+  vtuber_memory:
+    enabled: true
+    provider: 'default'  # 'default' (Chroma wrapper), 'letta', 'memgpt' (future)
+
   #  =================== LLM Backend Settings ===================
 
   agent_config:

@@ -36,6 +36,7 @@ from .vad.vad_factory import VADFactory
 from .vad.vad_interface import VADInterface
 from .twitch import TwitchClient, TwitchMessage
 from .memory.memory_service import MemoryService
+from .vtuber_memory import VtuberMemoryService, VtuberMemoryInterface
 
 # Import i18n system
 from .i18n import t
@@ -97,8 +98,9 @@ class ServiceContext:
         self.mcp_client: MCPClient | None = None
         self.tool_executor: ToolExecutor | None = None
 
-        # Long-term memory service
+        # Long-term memory services
         self.memory_service: MemoryService | None = None
+        self.vtuber_memory_service: VtuberMemoryInterface | None = None
         self.memory_enabled: bool = True
         self.memory_top_k: int = 4
         self.memory_min_importance: float | None = None
@@ -956,6 +958,21 @@ class ServiceContext:
                 self.memory_service = MemoryService(enabled=True)
             except Exception as e:
                 logger.warning(f"MemoryService init failed: {e}")
+
+        # Initialize vtuber memory wrapper according to config (non-breaking)
+        if self.vtuber_memory_service is None:
+            try:
+                use_vm = True
+                if hasattr(self, "character_config") and getattr(
+                    self.character_config, "vtuber_memory", None
+                ):
+                    use_vm = bool(
+                        getattr(self.character_config.vtuber_memory, "enabled", True)
+                    )
+                self.vtuber_memory_service = VtuberMemoryService(enabled=use_vm)
+            except Exception as e:
+                logger.warning(f"VtuberMemoryService init failed: {e}")
+                self.vtuber_memory_service = VtuberMemoryService(enabled=False)
 
         if (
             self.agent_engine is not None

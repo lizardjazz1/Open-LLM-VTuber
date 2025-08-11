@@ -24,6 +24,16 @@ class Live2DConfig(BaseModel):
     )
 
 
+class VtuberMemoryConfig(BaseModel):
+    """Vtuber memory module settings."""
+
+    enabled: bool = Field(True, description="Enable vtuber memory module")
+    provider: str = Field(
+        "default",
+        description="Memory provider implementation: 'default' (Chroma wrapper), 'letta', 'memgpt', etc.",
+    )
+
+
 class CharacterConfig(I18nMixin):
     """Character configuration settings."""
 
@@ -48,6 +58,9 @@ class CharacterConfig(I18nMixin):
     twitch_config: TwitchConfig = Field(
         default_factory=TwitchConfig, alias="twitch_config"
     )
+    vtuber_memory: VtuberMemoryConfig = Field(
+        default_factory=VtuberMemoryConfig, alias="vtuber_memory"
+    )
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "conf_name": Description(i18n_key="config.character.conf_name"),
@@ -69,6 +82,7 @@ class CharacterConfig(I18nMixin):
         "human_name": Description(i18n_key="config.character.human_name"),
         "avatar": Description(i18n_key="config.character.avatar"),
         "twitch_config": Description(i18n_key="config.character.twitch_config"),
+        "vtuber_memory": Description(i18n_key="config.character.vtuber_memory"),
     }
 
     @field_validator("persona_prompt")
