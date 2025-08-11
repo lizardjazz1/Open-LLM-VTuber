@@ -50,8 +50,6 @@ system_config:
   chroma_persist_dir: 'cache/chroma'
   chroma_collection: 'vtuber_memory'
   embeddings_model: 'paraphrase-multilingual-MiniLM-L12-v2'
-  embeddings_api_key: ''
-  embeddings_api_base: ''
 
 # 默认角色的配置
 character_config:
