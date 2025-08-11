@@ -18,3 +18,13 @@ try:
     from .log_routes import init_log_routes  # noqa: F401
 except Exception:
     pass
+
+from .log_routes import router as log_router
+from .twitch_routes import router as twitch_router
+from .admin_memory_routes import router as admin_memory_router
+
+routers = [
+    log_router,
+    twitch_router,
+    admin_memory_router,
+]
