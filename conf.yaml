@@ -11,9 +11,9 @@ system_config:
   memory_consolidation_interval_sec: 900
   chroma_persist_dir: 'cache/chroma'
   chroma_collection: 'vtuber_memory'
-  embeddings_model: 'text-embedding-paraphrase-multilingual-minilm-l12-v2'
-  embeddings_api_key: 'lm-studio'  # Любая непустая строка
-  embeddings_api_base: 'http://127.0.0.1:1234/v1'  # OpenAI-совместимый эндпоинт LM Studio
+  embeddings_model: 'paraphrase-multilingual-MiniLM-L12-v2'
+  embeddings_api_key: ''
+  embeddings_api_base: ''
 
   twitch_config:
     enabled: true
@@ -145,7 +145,7 @@ character_config:
         llm_provider: lmstudio_llm  # Переключаемся на LM Studio
         faster_first_response: true
         segment_method: pysbd
-        use_mcpp: true 
+        use_mcpp: false
         mcp_enabled_servers:
           - time
           - ddg-search
@@ -197,8 +197,12 @@ character_config:
       lmstudio_llm:
         base_url: http://127.0.0.1:1234/v1
         # Доступные модели (раскомментируйте нужную):
-        # model: qwen/qwen3-14b
-        model: silicon-masha@q6_k
+        # model: silicon-masha@q6_k  # Русскоязычная модель, быстрая и качественная
+        # model: silicon-masha@q5_k_m  # Русскоязычная модель, более быстрая
+        # model: qwen2.5-14b-instruct  # Временное переключение на Qwen 14B
+        model: qwen/qwen3-14b  # Очень мощная модель с поддержкой vision
+        # model: nous-hermes-2-mistral-7b-dpo  # Быстрая и качественная
+        # model: solar-10.7b-instruct-v1.0  # Хороший баланс скорости/качества
         temperature: 0.7
         top_p: 0.9
         frequency_penalty: 0.4
@@ -285,7 +289,7 @@ character_config:
   tts_config:
     tts_model: edge_tts
     edge_tts:
-      voice: 'ru-RU-СветланаNeural' # ГОЛОС МЕНЯТЬ ЗАПРЕЩЕНО!!!
+      voice: 'ru-RU-SvetlanaNeural' # ГОЛОС МЕНЯТЬ ЗАПРЕЩЕНО!!!
       rate: '+0%'
       volume: '+0%'
       pitch: '+15Hz'
