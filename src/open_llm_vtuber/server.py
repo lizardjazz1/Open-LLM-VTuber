@@ -20,6 +20,7 @@ from .routes import init_twitch_routes
 
 # // DEBUG: [FIXED] Include /logs endpoint | Ref: 4
 from .routes import init_log_routes
+from .routes.admin_memory_routes import router as admin_memory_router
 from .service_context import ServiceContext
 from .config_manager.utils import Config
 
@@ -119,6 +120,8 @@ class WebSocketServer:
         self.app.include_router(
             init_twitch_routes(default_context_cache=self.default_context_cache),
         )
+        # Admin memory and relationship management endpoints
+        self.app.include_router(admin_memory_router)
 
         # Install WS guard middleware: only explicit WS endpoints are allowed
         try:
