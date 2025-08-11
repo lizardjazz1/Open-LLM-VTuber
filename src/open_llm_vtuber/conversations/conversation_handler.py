@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Dict, Optional, Callable
+from typing import Dict, Optional, Callable, Any
 
 import numpy as np
 from fastapi import WebSocket
@@ -14,6 +14,7 @@ from .single_conversation import process_single_conversation
 from .conversation_utils import EMOJI_LIST
 from .types import GroupConversationState
 from prompts import prompt_loader
+from ..agent.input_types import TextSource
 
 
 async def handle_conversation_trigger(
@@ -31,6 +32,8 @@ async def handle_conversation_trigger(
 ) -> None:
     """Handle triggers that start a conversation"""
     metadata = None
+    enqueue_local = False
+    enqueue_payload: Optional[Dict[str, Any]] = None
 
     if msg_type == "ai-speak-signal":
         try:
@@ -54,6 +57,9 @@ async def handle_conversation_trigger(
             "skip_history": True,  # Skip storing in local conversation history
         }
 
+        # Standardized inbound log
+        logger.info(f"[system:AI] {user_input[:200]}")
+
         await websocket.send_text(
             json.dumps(
                 {
@@ -62,14 +68,61 @@ async def handle_conversation_trigger(
                 }
             )
         )
+        # Enqueue as system message to avoid interrupting current speech
+        enqueue_local = True
+        enqueue_payload = {
+            "content": user_input,
+            "from_name": context.character_config.human_name,
+            "source": "system",
+            "text_source_enum": TextSource.INPUT,
+            "images": data.get("images"),
+            "metadata": metadata,
+        }
     elif msg_type == "text-input":
         user_input = data.get("text", "")
+        # Standardized inbound log
+        logger.info(
+            f"[local:{context.character_config.human_name}] {str(user_input)[:200]}"
+        )
+        # Enqueue local UI message for queued processing
+        enqueue_local = True
+        enqueue_payload = {
+            "content": user_input,
+            "from_name": context.character_config.human_name,
+            "source": "local-ui",
+            "text_source_enum": TextSource.INPUT,
+            "images": data.get("images"),
+            "metadata": metadata,
+        }
     else:  # mic-audio-end
         user_input = received_data_buffers[client_uid]
         received_data_buffers[client_uid] = np.array([])
+        # Standardized inbound log
+        try:
+            audio_len = (
+                int(user_input.shape[0])
+                if hasattr(user_input, "shape")
+                else len(user_input)
+            )
+        except Exception:
+            audio_len = 0
+        logger.info(
+            f"[local:{context.character_config.human_name}] audio_samples={audio_len}"
+        )
+        # Guard: if no audio captured (e.g., rapid mic toggle), skip starting ASR
+        if audio_len == 0:
+            logger.info(
+                "Skipping conversation start: no audio samples captured (mic toggled without voice)"
+            )
+            return
 
     images = data.get("images")
     session_emoji = np.random.choice(EMOJI_LIST)
+
+    # If using queue for local/system text, do not start a direct task
+    if enqueue_local and enqueue_payload:
+        await context.enqueue_message(**enqueue_payload)  # type: ignore[arg-type]
+        return
 
     group = chat_group_manager.get_client_group(client_uid)
     if group and len(group.members) > 1:

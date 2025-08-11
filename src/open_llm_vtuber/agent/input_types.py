@@ -17,6 +17,9 @@ class TextSource(Enum):
 
     INPUT = "input"  # Main user input/transcription
     CLIPBOARD = "clipboard"  # Text from clipboard
+    TWITCH = "twitch"  # Text coming from Twitch chat
+    DISCORD = "discord"  # Text coming from Discord
+    TELEGRAM = "telegram"  # Text coming from Telegram
 
 
 @dataclass

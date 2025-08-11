@@ -9,12 +9,14 @@ from typing import (
     Optional,
 )
 from loguru import logger
+import json
+
 from .agent_interface import AgentInterface
 from ..output_types import SentenceOutput, DisplayText
 from ..stateless_llm.stateless_llm_interface import StatelessLLMInterface
 from ..stateless_llm.claude_llm import AsyncLLM as ClaudeAsyncLLM
 from ..stateless_llm.openai_compatible_llm import AsyncLLM as OpenAICompatibleAsyncLLM
-from ...chat_history_manager import get_history
+from ...chat_history_manager import get_history, get_metadata, update_metadate
 from ..transformers import (
     sentence_divider,
     actions_extractor,
@@ -29,12 +31,20 @@ from ...mcpp.json_detector import StreamJSONDetector
 from ...mcpp.types import ToolCallObject
 from ...mcpp.tool_executor import ToolExecutor
 import asyncio
+from ...debug_settings import ensure_log_sinks
+import time
+from ...logging_utils import truncate_and_hash
+
+_DEBUG_WS_UNUSED, DEBUG_LLM = ensure_log_sinks()
 
 
 class BasicMemoryAgent(AgentInterface):
     """Agent with basic chat memory and tool calling support."""
 
     _system: str = "You are a helpful assistant."
+
+    # Keep a bounded short-term memory window to avoid context explosion
+    _max_memory_messages: int = 30
 
     def __init__(
         self,
@@ -50,6 +60,10 @@ class BasicMemoryAgent(AgentInterface):
         tool_manager: Optional[ToolManager] = None,
         tool_executor: Optional[ToolExecutor] = None,
         mcp_prompt_string: str = "",
+        summarize_max_tokens: int = 256,
+        summarize_timeout_s: int = 25,
+        sentiment_max_tokens: int = 96,
+        sentiment_timeout_s: int = 12,
     ):
         """Initialize agent with LLM and configuration."""
         super().__init__()
@@ -68,6 +82,12 @@ class BasicMemoryAgent(AgentInterface):
         self._tool_executor = tool_executor
         self._mcp_prompt_string = mcp_prompt_string
         self._json_detector = StreamJSONDetector()
+
+        # Configurable LLM limits/timeouts for memory ops
+        self._summarize_max_tokens = int(max(32, summarize_max_tokens))
+        self._summarize_timeout_s = int(max(5, summarize_timeout_s))
+        self._sentiment_max_tokens = int(max(32, sentiment_max_tokens))
+        self._sentiment_timeout_s = int(max(5, sentiment_timeout_s))
 
         self._formatted_tools_openai = []
         self._formatted_tools_claude = []
@@ -178,20 +198,259 @@ class BasicMemoryAgent(AgentInterface):
         """Load memory from chat history."""
         messages = get_history(conf_uid, history_uid)
 
+        # Optional: load previously stored summary from metadata
+        summary_text = None
+        try:
+            meta = get_metadata(conf_uid, history_uid) or {}
+            summary_text = meta.get("summary")
+        except Exception:
+            summary_text = None
+
         self._memory = []
-        for msg in messages:
+        if summary_text:
+            # Prepend summary to guide the assistant without consuming many tokens
+            self._memory.append(
+                {
+                    "role": "system",
+                    "content": f"Conversation summary so far: {summary_text}",
+                }
+            )
+
+        # Take only the latest N messages (excluding metadata already filtered)
+        tail = (
+            messages[-self._max_memory_messages :]
+            if self._max_memory_messages > 0
+            else messages
+        )
+        for msg in tail:
             role = "user" if msg["role"] == "human" else "assistant"
-            content = msg["content"]
-            if isinstance(content, str) and content:
-                self._memory.append(
-                    {
-                        "role": role,
-                        "content": content,
-                    }
-                )
+            content = msg.get("content", "")
+            if isinstance(content, str) and content.strip():
+                self._memory.append({"role": role, "content": content})
             else:
-                logger.warning(f"Skipping invalid message from history: {msg}")
-        logger.info(f"Loaded {len(self._memory)} messages from history.")
+                logger.debug("Skipping empty/non-string message from history")
+
+        logger.info(
+            f"Loaded {len(self._memory)} messages from history (window size {self._max_memory_messages}{' + summary' if summary_text else ''})."
+        )
+
+    def update_history_summary(self, conf_uid: str, history_uid: str) -> None:
+        """Create a compact rolling summary and store it in metadata.
+
+        This is a lightweight, model-free summarization that keeps only
+        short, recent highlights to prime long-term memory.
+        """
+        try:
+            msgs = get_history(conf_uid, history_uid)
+            if not msgs:
+                return
+            # Take a small balanced window: more user than assistant
+            recent = msgs[-40:]
+            user_chunks = []
+            ai_chunks = []
+            for m in recent:
+                role = m.get("role")
+                content = (m.get("content") or "").strip()
+                if not content:
+                    continue
+                if role == "human" and len(user_chunks) < 16:
+                    user_chunks.append(content)
+                elif role == "ai" and len(ai_chunks) < 8:
+                    ai_chunks.append(content)
+
+            def compress(parts, prefix):
+                out = []
+                for p in parts:
+                    p = p.replace("\n", " ").strip()
+                    if len(p) > 160:
+                        p = p[:157] + "…"
+                    out.append(f"{prefix} {p}")
+                return out
+
+            lines = compress(user_chunks, "Пользователь:") + compress(
+                ai_chunks, "VTuber:"
+            )
+            summary = " | ".join(lines)
+            if len(summary) > 700:
+                summary = summary[:697] + "…"
+
+            update_metadate(conf_uid, history_uid, {"summary": summary})
+        except Exception as e:
+            logger.debug(f"update_history_summary skipped: {e}")
+
+    async def summarize_texts(self, texts: list[str]) -> dict:
+        """Summarize and categorize a set of texts into memory buckets.
+
+        Returns structured dict with keys: facts_about_user, past_events, self_beliefs, objectives, emotions, key_facts.
+        """
+        try:
+            if not texts:
+                return {}
+            llm = getattr(self, "_llm", None)
+            if not llm or not getattr(llm, "client", None):
+                return {}
+            joined = "\n".join([t.strip() for t in texts if t and isinstance(t, str)])[
+                :8000
+            ]
+            # Prefer externalized consolidation prompt if configured
+            system = None
+            try:
+                util_name = (self._tool_prompts or {}).get(
+                    "memory_consolidation_prompt", ""
+                )
+                if util_name:
+                    system = prompt_loader.load_util(util_name)
+            except Exception:
+                system = None
+            if not system:
+                system = (
+                    "You are a memory organizer for a virtual VTuber. Read conversation excerpts and extract only concise, factual, non-redundant memory."
+                    " Output strict JSON with fields: facts_about_user[], past_events[], self_beliefs[], objectives[], emotions[{name,score}], key_facts[{text,importance,tags[]}]."
+                    " Use Russian language. importance in [0,1]. Keep items short."
+                )
+            user = (
+                "Тексты диалога (последние сообщения):\n"
+                + joined
+                + "\n\nЗадача: кратко выдели: факты о пользователе, события, убеждения персонажа, цели; эмоции (name/score); ключевые факты (text/importance/tags)."
+            )
+            if DEBUG_LLM:
+                try:
+                    logger.bind(dst="llm").log(
+                        "INFO",
+                        (
+                            f"LLM OUT (basic_memory_agent): model={llm.model if hasattr(llm, 'model') else 'unknown'}, "
+                            f"messages={[{'role': 'system', 'content': system}, {'role': 'user', 'content': user}]}"
+                        ),
+                    )
+                except Exception:
+                    pass
+            # Ограничим длину ответа и введём таймаут (из конфигурации)
+            try:
+                resp = await asyncio.wait_for(
+                    llm.client.chat.completions.create(
+                        model=llm.model,
+                        messages=[
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": user},
+                        ],
+                        temperature=0.2,
+                        top_p=getattr(llm, "top_p", 1.0),
+                        max_tokens=self._summarize_max_tokens,
+                    ),
+                    timeout=float(self._summarize_timeout_s),
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "summarize_texts: LLM timeout (25s), returning empty summary"
+                )
+                return {}
+            content = (resp.choices and resp.choices[0].message.content) or "{}"
+            try:
+                data = json.loads(content)
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                pass
+            # best-effort fallback: try to extract JSON substring
+            import re
+
+            m = re.search(r"\{[\s\S]*\}", content)
+            if m:
+                try:
+                    return json.loads(m.group(0))
+                except Exception:
+                    return {}
+            return {}
+        except Exception as e:
+            logger.debug(f"summarize_texts failed: {e}")
+            return {}
+
+    async def analyze_sentiment(self, text: str) -> dict:
+        """Analyze sentiment of a single message and return {label, score[-1,1]} in Russian.
+
+        Returns an empty dict on failure.
+        """
+        try:
+            if not text or not isinstance(text, str):
+                return {}
+            llm = getattr(self, "_llm", None)
+            if not llm or not getattr(llm, "client", None):
+                return {}
+            system = (
+                "Ты детектор настроения и токсичности. Классифицируй короткий текст. "
+                'Верни строгий JSON: {"label": string, "score": number от -1 до 1}. '
+                "score < 0 — негатив/оскорбление, > 0 — позитив/поддержка, около 0 — нейтрально. "
+                "Только JSON, без пояснений."
+            )
+            user = f"Текст: {text}\nЗадача: Дай label (например: 'оскорбление', 'поддержка', 'нейтрально') и score в [-1,1]."
+            if DEBUG_LLM:
+                try:
+                    logger.bind(dst="llm").log(
+                        "INFO",
+                        (
+                            f"LLM OUT (basic_memory_agent): model={llm.model if hasattr(llm, 'model') else 'unknown'}, "
+                            f"messages={[{'role': 'system', 'content': system}, {'role': 'user', 'content': user}]}"
+                        ),
+                    )
+                except Exception:
+                    pass
+            try:
+                resp = await asyncio.wait_for(
+                    llm.client.chat.completions.create(
+                        model=llm.model,
+                        messages=[
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": user},
+                        ],
+                        temperature=0.2,
+                        top_p=getattr(llm, "top_p", 1.0),
+                        max_tokens=self._sentiment_max_tokens,
+                    ),
+                    timeout=float(self._sentiment_timeout_s),
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "analyze_sentiment: LLM timeout (12s), returning empty result"
+                )
+                return {}
+            content = (resp.choices and resp.choices[0].message.content) or "{}"
+            try:
+                data = json.loads(content)
+                if isinstance(data, dict) and "score" in data:
+                    try:
+                        s = float(data["score"])  # clamp to [-1,1]
+                        data["score"] = max(-1.0, min(1.0, s))
+                    except Exception:
+                        data["score"] = 0.0
+                    # normalize label
+                    if not isinstance(data.get("label"), str):
+                        data["label"] = "нейтрально"
+                    return data
+            except Exception:
+                pass
+            # fallback extract JSON
+            import re
+
+            m = re.search(r"\{[\s\S]*\}", content)
+            if m:
+                try:
+                    data = json.loads(m.group(0))
+                    if isinstance(data, dict):
+                        if "score" in data:
+                            try:
+                                s = float(data["score"])
+                                data["score"] = max(-1.0, min(1.0, s))
+                            except Exception:
+                                data["score"] = 0.0
+                        if not isinstance(data.get("label"), str):
+                            data["label"] = "нейтрально"
+                        return data
+                except Exception:
+                    return {}
+            return {}
+        except Exception as e:
+            logger.debug(f"analyze_sentiment failed: {e}")
+            return {}
 
     def handle_interrupt(self, heard_response: str) -> None:
         """Handle user interruption."""
@@ -229,11 +488,31 @@ class BasicMemoryAgent(AgentInterface):
 
         for text_data in input_data.texts:
             if text_data.source == TextSource.INPUT:
-                message_parts.append(text_data.content)
+                # Local/server-origin messages
+                name = text_data.from_name or "User"
+                message_parts.append(f"[Server:{name}] {text_data.content}")
             elif text_data.source == TextSource.CLIPBOARD:
                 message_parts.append(
                     f"[User shared content from clipboard: {text_data.content}]"
                 )
+            elif text_data.source == TextSource.TWITCH:
+                # Twitch prefix as requested
+                nick = text_data.from_name or "User"
+                message_parts.append(f"[Twitch:{nick}] {text_data.content}")
+            else:
+                # Future sources
+                try:
+                    from ..input_types import TextSource as _TS
+
+                    if text_data.source == _TS.DISCORD:
+                        nick = text_data.from_name or "User"
+                        message_parts.append(f"[Discord:{nick}] {text_data.content}")
+                    elif text_data.source == _TS.TELEGRAM:
+                        nick = text_data.from_name or "User"
+                        message_parts.append(f"[Telegram:{nick}] {text_data.content}")
+                except Exception:
+                    # Fallback
+                    message_parts.append(text_data.content)
 
         if input_data.images:
             message_parts.append("\n[User has also provided images]")
@@ -296,6 +575,10 @@ class BasicMemoryAgent(AgentInterface):
         """Handle Claude interaction loop with tool support."""
         messages = initial_messages.copy()
         current_turn_text = ""
+        start_ts = time.perf_counter()
+        first_token_ts: float | None = None
+        chunk_count = 0
+        char_count = 0
         pending_tool_calls = []
         current_assistant_message_content = []
 
@@ -312,6 +595,10 @@ class BasicMemoryAgent(AgentInterface):
                 if event["type"] == "text_delta":
                     text = event["text"]
                     current_turn_text += text
+                    if first_token_ts is None:
+                        first_token_ts = time.perf_counter()
+                    chunk_count += 1
+                    char_count += len(text)
                     yield text
                     if (
                         not current_assistant_message_content
@@ -403,6 +690,23 @@ class BasicMemoryAgent(AgentInterface):
             else:
                 if current_turn_text:
                     self._add_message(current_turn_text, "assistant")
+                # Structured log of final assistant text with basic timings
+                duration_ms = int((time.perf_counter() - start_ts) * 1000)
+                ttft_ms = (
+                    int((first_token_ts - start_ts) * 1000) if first_token_ts else None
+                )
+                logger.bind(
+                    component="llm",
+                    provider="claude",
+                    model=getattr(self._llm, "model", None),
+                    base_url=getattr(self._llm, "base_url", None),
+                    ttft_ms=ttft_ms,
+                    duration_ms=duration_ms,
+                    chunks=chunk_count,
+                    chars=char_count,
+                ).info(
+                    {"event": "llm_response", **truncate_and_hash(current_turn_text)}
+                )
                 return
 
     async def _openai_tool_interaction_loop(
@@ -443,7 +747,7 @@ class BasicMemoryAgent(AgentInterface):
             # Получаем поток как асинхронный итератор
             if asyncio.iscoroutine(stream):
                 stream = await stream
-            
+
             async for event in stream:
                 logger.debug(f"🔍 Processing event: {type(event)} = {event}")
                 logger.debug(f"🔍 prompt_mode_flag: {self.prompt_mode_flag}")
@@ -470,7 +774,9 @@ class BasicMemoryAgent(AgentInterface):
                                     break
                         yield event
                 else:
-                    logger.debug(f"🔍 Processing event in else block: {type(event)} = {event}")
+                    logger.debug(
+                        f"🔍 Processing event in else block: {type(event)} = {event}"
+                    )
                     if isinstance(event, str):
                         current_turn_text += event
                         yield event
@@ -498,20 +804,29 @@ class BasicMemoryAgent(AgentInterface):
                         logger.warning(
                             f"LLM {getattr(self._llm, 'model', '')} has no native tool support. Switching to prompt mode."
                         )
-                        logger.info(f"🔄 Processing __API_NOT_SUPPORT_TOOLS__ signal")
-                        logger.info(f"🔄 Current prompt_mode_flag: {self.prompt_mode_flag}")
+                        logger.info("🔄 Processing __API_NOT_SUPPORT_TOOLS__ signal")
+                        logger.info(
+                            f"🔄 Current prompt_mode_flag: {self.prompt_mode_flag}"
+                        )
                         # Добавляем детальное логирование
                         if self._tool_manager:
-                            available_tools = getattr(self._tool_manager, '_formatted_tools_openai', [])
-                            tool_names = [tool.get('function', {}).get('name', 'unknown') for tool in available_tools]
+                            available_tools = getattr(
+                                self._tool_manager, "_formatted_tools_openai", []
+                            )
+                            tool_names = [
+                                tool.get("function", {}).get("name", "unknown")
+                                for tool in available_tools
+                            ]
                             logger.warning(
                                 f"Available tools that will be used in prompt mode: {tool_names}"
                             )
                         logger.warning(
-                            f"Prompt mode will use JSON detection for tool calls instead of native API support"
+                            "Prompt mode will use JSON detection for tool calls instead of native API support"
                         )
                         self.prompt_mode_flag = True
-                        logger.info(f"🔄 Set prompt_mode_flag to: {self.prompt_mode_flag}")
+                        logger.info(
+                            f"🔄 Set prompt_mode_flag to: {self.prompt_mode_flag}"
+                        )
                         if self._tool_manager:
                             self._tool_manager.disable()
                         if self._json_detector:
@@ -563,7 +878,9 @@ class BasicMemoryAgent(AgentInterface):
                         messages.append(
                             {"role": "user", "content": combined_results_str}
                         )
-                        logger.info(f"🔧 Tool results added to messages: {combined_results_str}")
+                        logger.info(
+                            f"🔧 Tool results added to messages: {combined_results_str}"
+                        )
                 continue
 
             elif pending_tool_calls and assistant_message_for_api:
@@ -598,7 +915,9 @@ class BasicMemoryAgent(AgentInterface):
 
                 if tool_results_for_llm:
                     messages.extend(tool_results_for_llm)
-                    logger.info(f"🔧 Tool results added to messages: {tool_results_for_llm}")
+                    logger.info(
+                        f"🔧 Tool results added to messages: {tool_results_for_llm}"
+                    )
                 continue
 
             else:
@@ -667,7 +986,9 @@ class BasicMemoryAgent(AgentInterface):
                 logger.debug(
                     f"Starting OpenAI tool interaction loop with {len(tools)} tools."
                 )
-                logger.info(f"🔧 Tool mode: {tool_mode}, Tools count: {len(tools) if tools else 0}")
+                logger.info(
+                    f"🔧 Tool mode: {tool_mode}, Tools count: {len(tools) if tools else 0}"
+                )
                 async for output in self._openai_tool_interaction_loop(
                     messages, tools if tools else []
                 ):
@@ -692,15 +1013,43 @@ class BasicMemoryAgent(AgentInterface):
                     # Try to parse JSON response and extract the "response" field
                     try:
                         import json
+
                         parsed_json = json.loads(complete_response)
                         if isinstance(parsed_json, dict) and "response" in parsed_json:
                             # Extract only the response field from JSON
                             complete_response = parsed_json["response"]
-                            logger.info(f"Extracted response from JSON: {complete_response}")
+                            logger.info(
+                                f"Extracted response from JSON: {complete_response}"
+                            )
                     except (json.JSONDecodeError, KeyError):
                         # If not valid JSON or no response field, use as-is
-                        logger.debug("Response is not valid JSON or missing response field, using as-is")
-                    
+                        logger.debug(
+                            "Response is not valid JSON or missing response field, using as-is"
+                        )
+                    # Deduplicate repeated sentences heuristically
+                    try:
+                        parts = [
+                            p.strip()
+                            for p in complete_response.replace("\n", " ").split(".")
+                        ]
+                        seen = set()
+                        out = []
+                        for p in parts:
+                            if not p:
+                                continue
+                            key = p.lower()
+                            if key in seen:
+                                continue
+                            seen.add(key)
+                            out.append(p)
+                        complete_response = ". ".join(out).strip()
+                        if complete_response and not complete_response.endswith(
+                            (".", "!", "?")
+                        ):
+                            complete_response += "."
+                    except Exception:
+                        pass
+
                     self._add_message(complete_response, "assistant")
 
         return chat_with_memory

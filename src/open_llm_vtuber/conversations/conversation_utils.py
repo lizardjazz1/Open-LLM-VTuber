@@ -4,6 +4,7 @@ from typing import Optional, Union, Any, List, Dict
 import numpy as np
 import json
 from loguru import logger
+import time
 
 from ..message_handler import message_handler
 from .types import WebSocketSend, BroadcastContext
@@ -21,17 +22,16 @@ def clean_voice_commands_from_text(text: str) -> str:
     Remove voice commands and emotion commands from text for frontend display.
     Commands like {rate:+10%}, {volume:-5%}, {pitch:+15Hz} and [neutral], [joy] will be removed.
     """
-    import re
     # Remove voice commands in curly braces
-    voice_pattern = r'\{rate:(?:\+|\-)?\d+%\}|\{volume:(?:\+|\-)?\d+%\}|\{pitch:(?:\+|\-)?\d+Hz\}|\{neutral\}'
-    clean_text = re.sub(voice_pattern, '', text)
-    
+    voice_pattern = r"\{rate:(?:\+|\-)?\d+%\}|\{volume:(?:\+|\-)?\d+%\}|\{pitch:(?:\+|\-)?\d+Hz\}|\{neutral\}"
+    clean_text = re.sub(voice_pattern, "", text)
+
     # Remove emotion commands in square brackets
-    emotion_pattern = r'\[(?:neutral|joy|smile|laugh|anger|disgust|fear|sadness|surprise|confused|thinking|excited|shy|wink)\]'
-    clean_text = re.sub(emotion_pattern, '', clean_text)
-    
+    emotion_pattern = r"\[(?:neutral|joy|smile|laugh|anger|disgust|fear|sadness|surprise|confused|thinking|excited|shy|wink)\]"
+    clean_text = re.sub(emotion_pattern, "", clean_text)
+
     # Remove extra spaces
-    clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+    clean_text = re.sub(r"\s+", " ", clean_text).strip()
     return clean_text
 
 
@@ -41,12 +41,11 @@ def create_batch_input(
     images: Optional[List[Dict[str, Any]]],
     from_name: str,
     metadata: Optional[Dict[str, Any]] = None,
+    text_source: TextSource = TextSource.INPUT,
 ) -> BatchInput:
     """Create batch input for agent processing"""
     return BatchInput(
-        texts=[
-            TextData(source=TextSource.INPUT, content=input_text, from_name=from_name)
-        ],
+        texts=[TextData(source=text_source, content=input_text, from_name=from_name)],
         images=[
             ImageData(
                 source=ImageSource(img["source"]),
@@ -84,6 +83,7 @@ async def process_agent_output(
                 websocket_send,
                 tts_manager,
                 translate_engine,
+                character_config,
             )
         elif isinstance(output, AudioOutput):
             full_response = await handle_audio_output(output, websocket_send)
@@ -107,19 +107,35 @@ async def handle_sentence_output(
     websocket_send: WebSocketSend,
     tts_manager: TTSTaskManager,
     translate_engine: Optional[Any] = None,
+    character_config: Optional[Any] = None,
 ) -> str:
     """Handle sentence output type with optional translation support"""
     full_response = ""
     async for display_text, tts_text, actions in output:
         logger.debug(f"🏃 Processing output: '''{tts_text}'''...")
-        
+
         # Add detailed logging for debugging voice commands
-        if '{rate:' in tts_text or '{volume:' in tts_text or '{pitch:' in tts_text:
+        if "{rate:" in tts_text or "{volume:" in tts_text or "{pitch:" in tts_text:
             logger.info(f"🎵 Voice commands detected in tts_text: {tts_text}")
             # Show how the text will look on the frontend
             clean_display = clean_voice_commands_from_text(display_text.text)
             logger.info(f"📱 Frontend will see: {clean_display}")
-        elif '[neutral]' in tts_text or '[joy]' in tts_text or '[smile]' in tts_text or '[laugh]' in tts_text or '[anger]' in tts_text or '[disgust]' in tts_text or '[fear]' in tts_text or '[sadness]' in tts_text or '[surprise]' in tts_text or '[confused]' in tts_text or '[thinking]' in tts_text or '[excited]' in tts_text or '[shy]' in tts_text or '[wink]' in tts_text:
+        elif (
+            "[neutral]" in tts_text
+            or "[joy]" in tts_text
+            or "[smile]" in tts_text
+            or "[laugh]" in tts_text
+            or "[anger]" in tts_text
+            or "[disgust]" in tts_text
+            or "[fear]" in tts_text
+            or "[sadness]" in tts_text
+            or "[surprise]" in tts_text
+            or "[confused]" in tts_text
+            or "[thinking]" in tts_text
+            or "[excited]" in tts_text
+            or "[shy]" in tts_text
+            or "[wink]" in tts_text
+        ):
             logger.info(f"😊 Emotion commands detected in tts_text: {tts_text}")
             # Show how the text will look on the frontend
             clean_display = clean_voice_commands_from_text(display_text.text)
@@ -134,18 +150,54 @@ async def handle_sentence_output(
         else:
             logger.debug("🚫 No translation engine available. Skipping translation.")
 
+        # Auto-inject voice presets from emotion tags if no explicit voice commands present
+        try:
+            voice_pattern = r"\{rate:(?:\+|\-)?\d+%\}|\{volume:(?:\+|\-)?\d+%\}|\{pitch:(?:\+|\-)?\d+Hz\}|\{neutral\}"
+            emotion_pattern = r"\[(?:neutral|joy|smile|laugh|anger|disgust|fear|sadness|surprise|confused|thinking|excited|shy|wink)\]"
+            has_voice_commands = re.search(voice_pattern, tts_text) is not None
+            if not has_voice_commands and character_config is not None:
+                mapping = (
+                    getattr(
+                        getattr(character_config, "live2d_config", None),
+                        "emotion_voice_map",
+                        {},
+                    )
+                    or {}
+                )
+                if mapping:
+                    found_emotions = re.findall(emotion_pattern, tts_text)
+                    # Convert tags like '[joy]' -> 'joy'
+                    emotion_keys = [e.strip("[]").lower() for e in found_emotions]
+                    # Deduplicate while preserving order
+                    seen = set()
+                    unique_emotions = [
+                        e for e in emotion_keys if not (e in seen or seen.add(e))
+                    ]
+                    presets = [
+                        mapping[e]
+                        for e in unique_emotions
+                        if e in mapping and mapping[e]
+                    ]
+                    if presets:
+                        preset_str = "".join(presets)
+                        tts_text = f"{preset_str}{tts_text}"
+                        logger.info(
+                            f"🎛️ Injected voice presets from emotions: {unique_emotions} -> '{preset_str}'"
+                        )
+        except Exception as e:
+            logger.warning(f"Failed to inject voice presets from emotions: {e}")
+
         # Extract voice commands and apply them to the entire text
-        import re
-        voice_pattern = r'\{rate:(?:\+|\-)?\d+%\}|\{volume:(?:\+|\-)?\d+%\}|\{pitch:(?:\+|\-)?\d+Hz\}|\{neutral\}'
+        voice_pattern = r"\{rate:(?:\+|\-)?\d+%\}|\{volume:(?:\+|\-)?\d+%\}|\{pitch:(?:\+|\-)?\d+Hz\}|\{neutral\}"
         voice_commands = re.findall(voice_pattern, tts_text)
         if voice_commands:
             logger.info(f"🎵 Extracted voice commands: {voice_commands}")
             # Remove voice commands from tts_text completely
-            clean_tts_text = re.sub(voice_pattern, '', tts_text).strip()
+            clean_tts_text = re.sub(voice_pattern, "", tts_text).strip()
             if not clean_tts_text:
                 clean_tts_text = "."  # Ensure we have some text for TTS
             logger.info(f"🎵 Clean tts_text for TTS: '{clean_tts_text}'")
-            
+
             # Pass commands to TTS by prepending them to the text
             # edge_tts.py will parse and apply the commands, then remove them
             tts_text_with_commands = "".join(voice_commands) + clean_tts_text
@@ -153,12 +205,14 @@ async def handle_sentence_output(
             tts_text = tts_text_with_commands
 
         # Handle emotion commands - if text contains only emotions, skip TTS
-        emotion_pattern = r'\[(?:neutral|joy|smile|laugh|anger|disgust|fear|sadness|surprise|confused|thinking|excited|shy|wink)\]'
+        emotion_pattern = r"\[(?:neutral|joy|smile|laugh|anger|disgust|fear|sadness|surprise|confused|thinking|excited|shy|wink)\]"
         # Also handle {neutral} as emotion command
-        neutral_pattern = r'\{neutral\}'
-        clean_tts_text = re.sub(emotion_pattern, '', tts_text).strip()
-        clean_tts_text = re.sub(neutral_pattern, '', clean_tts_text).strip()
-        if not clean_tts_text and (re.search(emotion_pattern, tts_text) or re.search(neutral_pattern, tts_text)):
+        neutral_pattern = r"\{neutral\}"
+        clean_tts_text = re.sub(emotion_pattern, "", tts_text).strip()
+        clean_tts_text = re.sub(neutral_pattern, "", clean_tts_text).strip()
+        if not clean_tts_text and (
+            re.search(emotion_pattern, tts_text) or re.search(neutral_pattern, tts_text)
+        ):
             logger.info(f"😊 Emotion-only text detected, skipping TTS: {tts_text}")
             # Skip TTS for emotion-only text, but still send to frontend
             full_response += display_text.text
@@ -169,10 +223,10 @@ async def handle_sentence_output(
         # The TTS engine will parse and apply voice commands automatically
 
         full_response += display_text.text
-        
+
         # Clean display_text from voice commands for frontend
         display_text.text = clean_voice_commands_from_text(display_text.text)
-        
+
         await tts_manager.speak(
             tts_text=tts_text,  # Отправляем текст с командами голоса в TTS
             display_text=display_text,
@@ -192,10 +246,10 @@ async def handle_audio_output(
     full_response = ""
     async for audio_path, display_text, transcript, actions in output:
         full_response += transcript
-        
+
         # Clean display_text from voice commands for frontend
         display_text.text = clean_voice_commands_from_text(display_text.text)
-        
+
         audio_payload = prepare_audio_payload(
             audio_path=audio_path,
             display_text=display_text,
@@ -226,7 +280,15 @@ async def process_user_input(
     """Process user input, converting audio to text if needed"""
     if isinstance(user_input, np.ndarray):
         logger.info("Transcribing audio input...")
+        t0 = time.perf_counter()
         input_text = await asr_engine.async_transcribe_np(user_input)
+        logger.bind(component="perf").info(
+            {
+                "stage": "asr_ms",
+                "latency_ms": int((time.perf_counter() - t0) * 1000),
+                "engine": type(asr_engine).__name__,
+            }
+        )
         await websocket_send(
             json.dumps({"type": "user-input-transcription", "text": input_text})
         )
@@ -255,13 +317,15 @@ async def finalize_conversation_turn(
 
     await websocket_send(json.dumps({"type": "force-new-message"}))
 
+    # Broadcast force-new-message to group members (if any), matching original behavior
     if broadcast_ctx and broadcast_ctx.broadcast_func:
         await broadcast_ctx.broadcast_func(
             broadcast_ctx.group_members,
             {"type": "force-new-message"},
-            broadcast_ctx.current_client_uid,
+            broadcast_ctx.exclude_uid,
         )
 
+    # Send conversation-chain-end to drive UI back to idle and (optionally) auto-start mic
     await send_conversation_end_signal(websocket_send, broadcast_ctx)
 
 

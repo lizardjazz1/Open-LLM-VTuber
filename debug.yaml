@@ -1,0 +1,9 @@
+# Debug logging configuration
+# Toggle backend detailed logs here (true/false)
+ws_log: true
+llm_log: true
+
+# Optional: log directory and rotation
+logs_dir: logs
+rotation: 10 MB
+retention: 5 

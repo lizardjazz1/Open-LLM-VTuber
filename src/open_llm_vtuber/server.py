@@ -9,14 +9,26 @@ It uses FastAPI for the server and Starlette for static file serving.
 import os
 import shutil
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 from starlette.staticfiles import StaticFiles as StarletteStaticFiles
+from starlette.templating import Jinja2Templates
 
 from .routes import init_client_ws_route, init_webtool_routes, init_proxy_route
+from .routes import init_twitch_routes
+
+# // DEBUG: [FIXED] Include /logs endpoint | Ref: 4
+from .routes import init_log_routes
 from .service_context import ServiceContext
 from .config_manager.utils import Config
+
+# // DEBUG: [FIXED] SlowAPI middleware | Ref: 4
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 
 # Create a custom StaticFiles class that adds CORS headers
@@ -79,6 +91,12 @@ class WebSocketServer:
         )  # Use provided context or initialize a new empty one waiting to be loaded
         # It will be populated during the initialize method call
 
+        # // DEBUG: [FIXED] Add SlowAPI middleware for rate limiting | Ref: 4
+        limiter = Limiter(key_func=get_remote_address)
+        self.app.state.limiter = limiter
+        self.app.add_middleware(SlowAPIMiddleware)
+        self.app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
         # Add global CORS middleware
         self.app.add_middleware(
             CORSMiddleware,
@@ -96,6 +114,21 @@ class WebSocketServer:
         self.app.include_router(
             init_webtool_routes(default_context_cache=self.default_context_cache),
         )
+        # // DEBUG: [FIXED] Mount /logs route | Ref: 4
+        self.app.include_router(init_log_routes(config=config, limiter=limiter))
+        self.app.include_router(
+            init_twitch_routes(default_context_cache=self.default_context_cache),
+        )
+
+        # Install WS guard middleware: only explicit WS endpoints are allowed
+        try:
+            from .middleware.ws_guard import WebSocketPathGuard
+
+            allowed_ws_paths = {"/client-ws", "/proxy-ws", "/tts-ws"}
+            self.app.add_middleware(WebSocketPathGuard, allowed_paths=allowed_ws_paths)
+        except Exception:
+            # If middleware import fails, continue without it
+            pass
 
         # Initialize and include proxy routes if proxy is enabled
         system_config = config.system_config
@@ -140,6 +173,36 @@ class WebSocketServer:
             CORSStaticFiles(directory="web_tool", html=True),
             name="web_tool",
         )
+
+        # Mount Python-based alternative frontend static files
+        # Served at /py-static and templates rendered at /py
+        try:
+            py_static_dir = "frontend_py/static"
+            py_templates_dir = "frontend_py/templates"
+            if os.path.isdir(py_static_dir):
+                self.app.mount(
+                    "/py-static",
+                    CORSStaticFiles(directory=py_static_dir),
+                    name="py-static",
+                )
+            # Initialize Jinja2 templates (requires jinja2, included via fastapi[standard])
+            self._py_templates = Jinja2Templates(directory=py_templates_dir)
+
+            async def _py_index(request: Request):
+                # Render the Python frontend entry page
+                return self._py_templates.TemplateResponse(
+                    "index.html",
+                    {
+                        "request": request,
+                    },
+                )
+
+            # Register /py only if templates folder exists
+            if os.path.isdir(py_templates_dir):
+                self.app.add_api_route("/py", _py_index, methods=["GET"])
+        except Exception:
+            # If Jinja2 or folders are missing, skip python frontend
+            pass
 
         # Mount main frontend last (as catch-all)
         self.app.mount(

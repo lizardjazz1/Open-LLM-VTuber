@@ -277,12 +277,28 @@ def get_history_list(conf_uid: str) -> List[dict]:
                         continue
 
                     latest_message = actual_messages[-1]
+                    # Consolidation metadata from first entry if it's metadata
+                    consolidated = False
+                    consolidated_ts = None
+                    try:
+                        meta = (
+                            messages[0]
+                            if messages and isinstance(messages[0], dict)
+                            else None
+                        )
+                        if meta and meta.get("role") == "metadata":
+                            consolidated = bool(meta.get("memory_consolidated", False))
+                            consolidated_ts = meta.get("memory_consolidated_ts")
+                    except Exception:
+                        pass
                     history_info = {
                         "uid": history_uid,
                         "latest_message": latest_message,
                         "timestamp": (
                             latest_message["timestamp"] if latest_message else None
                         ),
+                        "consolidated": consolidated,
+                        "consolidated_ts": consolidated_ts,
                     }
                     histories.append(history_info)
             except Exception as e:

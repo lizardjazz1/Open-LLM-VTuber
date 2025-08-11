@@ -3,15 +3,13 @@ Centralized translations for Open-LLM-VTuber
 This file contains all text strings used in the application.
 """
 
-from typing import Dict, Any
-
 # Base translations structure
 TRANSLATIONS = {
     "en": {
         "app": {
             "name": "Open-LLM-VTuber",
             "description": "Low-latency voice-based LLM interaction tool",
-            "version": "Version"
+            "version": "Version",
         },
         "server": {
             "starting": "Starting Open-LLM-VTuber server...",
@@ -23,7 +21,7 @@ TRANSLATIONS = {
             "port": "Server port number",
             "websocket_connected": "WebSocket client connected",
             "websocket_disconnected": "WebSocket client disconnected",
-            "websocket_error": "WebSocket error occurred"
+            "websocket_error": "WebSocket error occurred",
         },
         "config": {
             "loading": "Loading configuration...",
@@ -35,7 +33,7 @@ TRANSLATIONS = {
             "backup_restored": "Configuration backup restored",
             "validation_error": "Configuration validation error",
             "field_required": "Field '{field}' is required",
-            "invalid_value": "Invalid value for field '{field}'"
+            "invalid_value": "Invalid value for field '{field}'",
         },
         "llm": {
             "connecting": "Connecting to LLM...",
@@ -47,7 +45,7 @@ TRANSLATIONS = {
             "model_loaded": "LLM model loaded successfully",
             "model_error": "Error loading LLM model",
             "context_length": "Context length exceeded",
-            "token_limit": "Token limit reached"
+            "token_limit": "Token limit reached",
         },
         "asr": {
             "initializing": "Initializing speech recognition...",
@@ -59,7 +57,7 @@ TRANSLATIONS = {
             "model_loaded": "ASR model loaded",
             "model_error": "Error loading ASR model",
             "audio_format": "Unsupported audio format",
-            "sample_rate": "Invalid sample rate"
+            "sample_rate": "Invalid sample rate",
         },
         "tts": {
             "initializing": "Initializing text-to-speech...",
@@ -71,7 +69,7 @@ TRANSLATIONS = {
             "model_loaded": "TTS model loaded",
             "model_error": "Error loading TTS model",
             "audio_quality": "Audio quality issue",
-            "rate_limit": "TTS rate limit exceeded"
+            "rate_limit": "TTS rate limit exceeded",
         },
         "vad": {
             "initializing": "Initializing voice activity detection...",
@@ -81,7 +79,7 @@ TRANSLATIONS = {
             "error": "Voice activity detection error",
             "model_loaded": "VAD model loaded",
             "model_error": "Error loading VAD model",
-            "threshold_adjusted": "VAD threshold adjusted"
+            "threshold_adjusted": "VAD threshold adjusted",
         },
         "live2d": {
             "loading": "Loading Live2D model...",
@@ -90,7 +88,7 @@ TRANSLATIONS = {
             "expression_set": "Expression set to {expression}",
             "motion_played": "Motion played: {motion}",
             "model_not_found": "Live2D model not found",
-            "parameter_updated": "Parameter updated: {parameter}"
+            "parameter_updated": "Parameter updated: {parameter}",
         },
         "proxy": {
             "enabled": "Proxy mode enabled",
@@ -98,7 +96,7 @@ TRANSLATIONS = {
             "client_connected": "Proxy client connected",
             "client_disconnected": "Proxy client disconnected",
             "message_forwarded": "Message forwarded to client",
-            "error": "Proxy error occurred"
+            "error": "Proxy error occurred",
         },
         "twitch": {
             "connecting": "Connecting to Twitch...",
@@ -109,7 +107,7 @@ TRANSLATIONS = {
             "donation": "Donation received",
             "subscription": "Subscription event",
             "follow": "New follower",
-            "raid": "Raid event"
+            "raid": "Raid event",
         },
         "memory": {
             "loading": "Loading memory...",
@@ -119,7 +117,7 @@ TRANSLATIONS = {
             "error": "Memory error occurred",
             "context_added": "Context added to memory",
             "context_retrieved": "Context retrieved from memory",
-            "memory_full": "Memory is full, cleaning old entries"
+            "memory_full": "Memory is full, cleaning old entries",
         },
         "tools": {
             "executing": "Executing tool: {tool}",
@@ -127,7 +125,7 @@ TRANSLATIONS = {
             "error": "Tool execution error",
             "not_found": "Tool not found: {tool}",
             "timeout": "Tool execution timeout",
-            "permission_denied": "Tool permission denied"
+            "permission_denied": "Tool permission denied",
         },
         "ui": {
             "loading": "Loading...",
@@ -139,7 +137,7 @@ TRANSLATIONS = {
             "cancel": "Cancel",
             "ok": "OK",
             "yes": "Yes",
-            "no": "No"
+            "no": "No",
         },
         "validation": {
             "required": "This field is required",
@@ -148,14 +146,14 @@ TRANSLATIONS = {
             "too_long": "Value is too long",
             "invalid_range": "Value is out of range",
             "invalid_email": "Invalid email address",
-            "invalid_url": "Invalid URL"
-        }
+            "invalid_url": "Invalid URL",
+        },
     },
     "zh": {
         "app": {
             "name": "Open-LLM-VTuber",
             "description": "低延迟基于语音的LLM交互工具",
-            "version": "版本"
+            "version": "版本",
         },
         "server": {
             "starting": "正在启动Open-LLM-VTuber服务器...",
@@ -167,7 +165,7 @@ TRANSLATIONS = {
             "port": "服务器端口号",
             "websocket_connected": "WebSocket客户端已连接",
             "websocket_disconnected": "WebSocket客户端已断开",
-            "websocket_error": "WebSocket发生错误"
+            "websocket_error": "WebSocket发生错误",
         },
         "config": {
             "loading": "正在加载配置...",
@@ -179,7 +177,7 @@ TRANSLATIONS = {
             "backup_restored": "配置备份已恢复",
             "validation_error": "配置验证错误",
             "field_required": "字段'{field}'是必需的",
-            "invalid_value": "字段'{field}'的值无效"
+            "invalid_value": "字段'{field}'的值无效",
         },
         "llm": {
             "connecting": "正在连接到LLM...",
@@ -191,7 +189,7 @@ TRANSLATIONS = {
             "model_loaded": "LLM模型加载成功",
             "model_error": "加载LLM模型时出错",
             "context_length": "上下文长度超出限制",
-            "token_limit": "达到令牌限制"
+            "token_limit": "达到令牌限制",
         },
         "asr": {
             "initializing": "正在初始化语音识别...",
@@ -203,7 +201,7 @@ TRANSLATIONS = {
             "model_loaded": "ASR模型已加载",
             "model_error": "加载ASR模型时出错",
             "audio_format": "不支持的音频格式",
-            "sample_rate": "无效的采样率"
+            "sample_rate": "无效的采样率",
         },
         "tts": {
             "initializing": "正在初始化文本转语音...",
@@ -215,7 +213,7 @@ TRANSLATIONS = {
             "model_loaded": "TTS模型已加载",
             "model_error": "加载TTS模型时出错",
             "audio_quality": "音频质量问题",
-            "rate_limit": "TTS速率限制超出"
+            "rate_limit": "TTS速率限制超出",
         },
         "vad": {
             "initializing": "正在初始化语音活动检测...",
@@ -225,7 +223,7 @@ TRANSLATIONS = {
             "error": "语音活动检测错误",
             "model_loaded": "VAD模型已加载",
             "model_error": "加载VAD模型时出错",
-            "threshold_adjusted": "VAD阈值已调整"
+            "threshold_adjusted": "VAD阈值已调整",
         },
         "live2d": {
             "loading": "正在加载Live2D模型...",
@@ -234,7 +232,7 @@ TRANSLATIONS = {
             "expression_set": "表情设置为{expression}",
             "motion_played": "播放动作：{motion}",
             "model_not_found": "未找到Live2D模型",
-            "parameter_updated": "参数已更新：{parameter}"
+            "parameter_updated": "参数已更新：{parameter}",
         },
         "proxy": {
             "enabled": "代理模式已启用",
@@ -242,7 +240,7 @@ TRANSLATIONS = {
             "client_connected": "代理客户端已连接",
             "client_disconnected": "代理客户端已断开",
             "message_forwarded": "消息已转发给客户端",
-            "error": "代理发生错误"
+            "error": "代理发生错误",
         },
         "twitch": {
             "connecting": "正在连接到Twitch...",
@@ -253,7 +251,7 @@ TRANSLATIONS = {
             "donation": "收到捐赠",
             "subscription": "订阅事件",
             "follow": "新关注者",
-            "raid": "突袭事件"
+            "raid": "突袭事件",
         },
         "memory": {
             "loading": "正在加载内存...",
@@ -263,7 +261,7 @@ TRANSLATIONS = {
             "error": "内存错误",
             "context_added": "上下文已添加到内存",
             "context_retrieved": "从内存中检索到上下文",
-            "memory_full": "内存已满，正在清理旧条目"
+            "memory_full": "内存已满，正在清理旧条目",
         },
         "tools": {
             "executing": "正在执行工具：{tool}",
@@ -271,7 +269,7 @@ TRANSLATIONS = {
             "error": "工具执行错误",
             "not_found": "未找到工具：{tool}",
             "timeout": "工具执行超时",
-            "permission_denied": "工具权限被拒绝"
+            "permission_denied": "工具权限被拒绝",
         },
         "ui": {
             "loading": "正在加载...",
@@ -283,7 +281,7 @@ TRANSLATIONS = {
             "cancel": "取消",
             "ok": "确定",
             "yes": "是",
-            "no": "否"
+            "no": "否",
         },
         "validation": {
             "required": "此字段是必需的",
@@ -292,14 +290,14 @@ TRANSLATIONS = {
             "too_long": "值太长",
             "invalid_range": "值超出范围",
             "invalid_email": "无效的电子邮件地址",
-            "invalid_url": "无效的URL"
-        }
+            "invalid_url": "无效的URL",
+        },
     },
     "ru": {
         "app": {
             "name": "Open-LLM-VTuber",
             "description": "Инструмент взаимодействия с LLM на основе голоса с низкой задержкой",
-            "version": "Версия"
+            "version": "Версия",
         },
         "server": {
             "starting": "Запуск сервера Open-LLM-VTuber...",
@@ -311,7 +309,7 @@ TRANSLATIONS = {
             "port": "Номер порта сервера",
             "websocket_connected": "WebSocket клиент подключен",
             "websocket_disconnected": "WebSocket клиент отключен",
-            "websocket_error": "Произошла ошибка WebSocket"
+            "websocket_error": "Произошла ошибка WebSocket",
         },
         "config": {
             "loading": "Загрузка конфигурации...",
@@ -323,7 +321,7 @@ TRANSLATIONS = {
             "backup_restored": "Резервная копия конфигурации восстановлена",
             "validation_error": "Ошибка валидации конфигурации",
             "field_required": "Поле '{field}' обязательно",
-            "invalid_value": "Недействительное значение для поля '{field}'"
+            "invalid_value": "Недействительное значение для поля '{field}'",
         },
         "llm": {
             "connecting": "Подключение к LLM...",
@@ -335,7 +333,7 @@ TRANSLATIONS = {
             "model_loaded": "Модель LLM загружена успешно",
             "model_error": "Ошибка загрузки модели LLM",
             "context_length": "Превышена длина контекста",
-            "token_limit": "Достигнут лимит токенов"
+            "token_limit": "Достигнут лимит токенов",
         },
         "asr": {
             "initializing": "Инициализация распознавания речи...",
@@ -347,7 +345,7 @@ TRANSLATIONS = {
             "model_loaded": "Модель ASR загружена",
             "model_error": "Ошибка загрузки модели ASR",
             "audio_format": "Неподдерживаемый формат аудио",
-            "sample_rate": "Недействительная частота дискретизации"
+            "sample_rate": "Недействительная частота дискретизации",
         },
         "tts": {
             "initializing": "Инициализация преобразования текста в речь...",
@@ -359,7 +357,7 @@ TRANSLATIONS = {
             "model_loaded": "Модель TTS загружена",
             "model_error": "Ошибка загрузки модели TTS",
             "audio_quality": "Проблема качества аудио",
-            "rate_limit": "Превышен лимит скорости TTS"
+            "rate_limit": "Превышен лимит скорости TTS",
         },
         "vad": {
             "initializing": "Инициализация обнаружения речевой активности...",
@@ -369,7 +367,7 @@ TRANSLATIONS = {
             "error": "Ошибка обнаружения речевой активности",
             "model_loaded": "Модель VAD загружена",
             "model_error": "Ошибка загрузки модели VAD",
-            "threshold_adjusted": "Порог VAD скорректирован"
+            "threshold_adjusted": "Порог VAD скорректирован",
         },
         "live2d": {
             "loading": "Загрузка модели Live2D...",
@@ -378,7 +376,7 @@ TRANSLATIONS = {
             "expression_set": "Выражение установлено: {expression}",
             "motion_played": "Воспроизведено движение: {motion}",
             "model_not_found": "Модель Live2D не найдена",
-            "parameter_updated": "Параметр обновлен: {parameter}"
+            "parameter_updated": "Параметр обновлен: {parameter}",
         },
         "proxy": {
             "enabled": "Режим прокси включен",
@@ -386,7 +384,7 @@ TRANSLATIONS = {
             "client_connected": "Прокси клиент подключен",
             "client_disconnected": "Прокси клиент отключен",
             "message_forwarded": "Сообщение переслано клиенту",
-            "error": "Произошла ошибка прокси"
+            "error": "Произошла ошибка прокси",
         },
         "twitch": {
             "connecting": "Подключение к Twitch...",
@@ -397,7 +395,7 @@ TRANSLATIONS = {
             "donation": "Получено пожертвование",
             "subscription": "Событие подписки",
             "follow": "Новый подписчик",
-            "raid": "Событие рейда"
+            "raid": "Событие рейда",
         },
         "memory": {
             "loading": "Загрузка памяти...",
@@ -407,7 +405,7 @@ TRANSLATIONS = {
             "error": "Ошибка памяти",
             "context_added": "Контекст добавлен в память",
             "context_retrieved": "Контекст извлечен из памяти",
-            "memory_full": "Память заполнена, очистка старых записей"
+            "memory_full": "Память заполнена, очистка старых записей",
         },
         "tools": {
             "executing": "Выполнение инструмента: {tool}",
@@ -415,7 +413,7 @@ TRANSLATIONS = {
             "error": "Ошибка выполнения инструмента",
             "not_found": "Инструмент не найден: {tool}",
             "timeout": "Таймаут выполнения инструмента",
-            "permission_denied": "Доступ к инструменту запрещен"
+            "permission_denied": "Доступ к инструменту запрещен",
         },
         "ui": {
             "loading": "Загрузка...",
@@ -427,7 +425,7 @@ TRANSLATIONS = {
             "cancel": "Отмена",
             "ok": "ОК",
             "yes": "Да",
-            "no": "Нет"
+            "no": "Нет",
         },
         "validation": {
             "required": "Это поле обязательно",
@@ -436,30 +434,30 @@ TRANSLATIONS = {
             "too_long": "Значение слишком длинное",
             "invalid_range": "Значение вне диапазона",
             "invalid_email": "Недействительный адрес электронной почты",
-            "invalid_url": "Недействительный URL"
-        }
-    }
+            "invalid_url": "Недействительный URL",
+        },
+    },
 }
 
 
 def get_translation(key: str, lang_code: str = "en") -> str:
     """
     Get a translation by key and language code.
-    
+
     Args:
         key: Translation key (e.g., "server.starting")
         lang_code: Language code (e.g., "en", "zh", "ru")
-        
+
     Returns:
         Translated text or the key itself if not found
     """
     if lang_code not in TRANSLATIONS:
         lang_code = "en"
-    
+
     # Split key by dots to navigate nested structure
-    keys = key.split('.')
+    keys = key.split(".")
     translation = TRANSLATIONS[lang_code]
-    
+
     # Navigate through nested structure
     for k in keys:
         if isinstance(translation, dict) and k in translation:
@@ -469,22 +467,22 @@ def get_translation(key: str, lang_code: str = "en") -> str:
             if lang_code != "en":
                 return get_translation(key, "en")
             return key
-    
+
     # If we found a string, return it
     if isinstance(translation, str):
         return translation
-    
+
     # Fallback to English
     if lang_code != "en":
         return get_translation(key, "en")
-    
+
     return key
 
 
 def get_available_languages() -> list[str]:
     """
     Get list of available language codes.
-    
+
     Returns:
         List of available language codes
     """
@@ -494,19 +492,19 @@ def get_available_languages() -> list[str]:
 def format_translation(key: str, lang_code: str = "en", **kwargs) -> str:
     """
     Get a formatted translation with placeholders.
-    
+
     Args:
         key: Translation key
         lang_code: Language code
         **kwargs: Format arguments
-        
+
     Returns:
         Formatted translated text
     """
     translation = get_translation(key, lang_code)
-    
+
     try:
         return translation.format(**kwargs)
     except (KeyError, ValueError):
         # If formatting fails, return the translation as is
-        return translation 
+        return translation

@@ -32,7 +32,9 @@ class FasterWhisperConfig(I18nMixin):
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "model_path": Description(i18n_key="config.asr.faster_whisper.model_path"),
-        "download_root": Description(i18n_key="config.asr.faster_whisper.download_root"),
+        "download_root": Description(
+            i18n_key="config.asr.faster_whisper.download_root"
+        ),
         "language": Description(i18n_key="config.asr.faster_whisper.language"),
         "device": Description(i18n_key="config.asr.faster_whisper.device"),
         "compute_type": Description(i18n_key="config.asr.faster_whisper.compute_type"),
@@ -152,8 +154,12 @@ class SherpaOnnxASRConfig(I18nMixin):
         "nemo_ctc": Description(i18n_key="config.asr.sherpa_onnx.nemo_ctc"),
         "wenet_ctc": Description(i18n_key="config.asr.sherpa_onnx.wenet_ctc"),
         "tdnn_model": Description(i18n_key="config.asr.sherpa_onnx.tdnn_model"),
-        "whisper_encoder": Description(i18n_key="config.asr.sherpa_onnx.whisper_encoder"),
-        "whisper_decoder": Description(i18n_key="config.asr.sherpa_onnx.whisper_decoder"),
+        "whisper_encoder": Description(
+            i18n_key="config.asr.sherpa_onnx.whisper_encoder"
+        ),
+        "whisper_decoder": Description(
+            i18n_key="config.asr.sherpa_onnx.whisper_decoder"
+        ),
         "sense_voice": Description(i18n_key="config.asr.sherpa_onnx.sense_voice"),
         "tokens": Description(i18n_key="config.asr.sherpa_onnx.tokens"),
         "num_threads": Description(i18n_key="config.asr.sherpa_onnx.num_threads"),
@@ -171,7 +177,9 @@ class SherpaOnnxASRConfig(I18nMixin):
                 )
         elif model_type == "paraformer":
             if not values.paraformer:
-                raise ValueError("For paraformer model type, paraformer path is required")
+                raise ValueError(
+                    "For paraformer model type, paraformer path is required"
+                )
         elif model_type == "nemo_ctc":
             if not values.nemo_ctc:
                 raise ValueError("For nemo_ctc model type, nemo_ctc path is required")
@@ -188,7 +196,9 @@ class SherpaOnnxASRConfig(I18nMixin):
                 raise ValueError("For tdnn_ctc model type, tdnn_model path is required")
         elif model_type == "sense_voice":
             if not values.sense_voice:
-                raise ValueError("For sense_voice model type, sense_voice path is required")
+                raise ValueError(
+                    "For sense_voice model type, sense_voice path is required"
+                )
         return values
 
 
@@ -233,15 +243,23 @@ class ASRConfig(I18nMixin):
         if asr_model == "azure_asr" and not values.azure_asr:
             raise ValueError("Azure ASR configuration is required when using azure_asr")
         elif asr_model == "faster_whisper" and not values.faster_whisper:
-            raise ValueError("Faster Whisper configuration is required when using faster_whisper")
+            raise ValueError(
+                "Faster Whisper configuration is required when using faster_whisper"
+            )
         elif asr_model == "whisper_cpp" and not values.whisper_cpp:
-            raise ValueError("WhisperCPP configuration is required when using whisper_cpp")
+            raise ValueError(
+                "WhisperCPP configuration is required when using whisper_cpp"
+            )
         elif asr_model == "whisper" and not values.whisper:
             raise ValueError("Whisper configuration is required when using whisper")
         elif asr_model == "fun_asr" and not values.fun_asr:
             raise ValueError("FunASR configuration is required when using fun_asr")
         elif asr_model == "groq_whisper_asr" and not values.groq_whisper_asr:
-            raise ValueError("Groq Whisper ASR configuration is required when using groq_whisper_asr")
+            raise ValueError(
+                "Groq Whisper ASR configuration is required when using groq_whisper_asr"
+            )
         elif asr_model == "sherpa_onnx_asr" and not values.sherpa_onnx_asr:
-            raise ValueError("Sherpa Onnx ASR configuration is required when using sherpa_onnx_asr")
+            raise ValueError(
+                "Sherpa Onnx ASR configuration is required when using sherpa_onnx_asr"
+            )
         return values

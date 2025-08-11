@@ -18,10 +18,8 @@ taskkill /F /IM python.exe /FI "COMMANDLINE eq *run_server.py*" >nul 2>&1
 taskkill /F /IM python.exe /FI "COMMANDLINE eq *mcp_server_time*" >nul 2>&1
 taskkill /F /IM python.exe /FI "COMMANDLINE eq *uv*" >nul 2>&1
 
-REM Ждем немного, чтобы процессы завершились
-timeout /t 2 /nobreak >nul
-
-REM Проверяем Python
+echo.
+echo Проверяем Python...
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo Ошибка: Python не найден
@@ -30,7 +28,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-REM Проверяем uv
+echo Проверяем uv...
 uv --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo Ошибка: uv не найден
@@ -39,7 +37,6 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-REM Проверяем LM Studio
 echo Проверяем LM Studio...
 curl -s http://127.0.0.1:1234/v1/models >nul 2>&1
 if %errorlevel% neq 0 (
@@ -58,6 +55,8 @@ echo Веб-интерфейс будет доступен по адресу: ht
 echo.
 
 REM Запускаем VTuber
-uv run python run_server.py
+uv run run_server.py
+
+start "" http://localhost:12393
 
 pause 

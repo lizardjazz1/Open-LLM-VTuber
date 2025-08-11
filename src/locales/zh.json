@@ -14,7 +14,12 @@
     "port": "服务器端口号",
     "websocket_connected": "WebSocket客户端已连接",
     "websocket_disconnected": "WebSocket客户端已断开",
-    "websocket_error": "WebSocket发生错误"
+    "websocket_error": "WebSocket发生错误",
+    "proxy_enabled": "代理模式已启用 - /proxy-ws 端点将可用",
+    "initializing_context": "正在初始化服务器上下文...",
+    "context_initialized": "服务器上下文已成功初始化。",
+    "context_init_failed": "无法初始化服务器上下文：{error}",
+    "starting_on": "正在http://{host}:{port}/启动服务器"
   },
   "config": {
     "loading": "正在加载配置...",

@@ -52,7 +52,7 @@ class I18nMixin(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
-    
+
     # Class variable for field descriptions - not a model field
     DESCRIPTIONS: ClassVar[Dict[str, Description | str]] = {}
 
@@ -127,16 +127,16 @@ class I18nMixin(BaseModel):
             Dictionary mapping field names to list of missing i18n keys.
         """
         missing_keys = {}
-        
+
         if hasattr(self, "DESCRIPTIONS"):
             for field_name, description in self.DESCRIPTIONS.items():
                 if isinstance(description, Description):
                     # Check if the i18n key exists by trying to get it
                     try:
                         t(description.i18n_key)
-                    except:
+                    except Exception:
                         missing_keys[field_name] = [description.i18n_key]
-        
+
         return missing_keys
 
     def export_translations(self, lang_code: str = "en") -> Dict[str, str]:

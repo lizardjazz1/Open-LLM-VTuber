@@ -1,21 +1,22 @@
 # System Settings: Setting related to the initialization of the server
 system_config:
-  conf_version: 'v1.2.0'
-  host: 'localhost' # use 0.0.0.0 if you want other devices to access this page
+  conf_version: "1.0"
+  host: "127.0.0.1"
   port: 12393
   # Language setting for the application (e.g., 'en', 'ru', 'zh', 'jp', 'fr')
   # Just add your language file to locales/ folder and set it here
-  language: 'en'
+  language: "en"
   # New setting for alternative configurations
-  config_alts_dir: 'characters'
+  config_alts_dir: "config_templates/"
+  config_alt: null
   # Enable proxy mode for live platform integrations
-  enable_proxy: true
+  enable_proxy: false
   # Twitch integration settings
   twitch_config:
     enabled: false
-    channel_name: 'your_channel_name'
-    app_id: ''  # Get from https://dev.twitch.tv/console
-    app_secret: ''  # Get from https://dev.twitch.tv/console
+    channel_name: "your_channel_name"
+    app_id: ""  # Get from https://dev.twitch.tv/console
+    app_secret: ""  # Get from https://dev.twitch.tv/console
     max_message_length: 300
     max_recent_messages: 10
   # Tool prompts that will be appended to the persona prompt

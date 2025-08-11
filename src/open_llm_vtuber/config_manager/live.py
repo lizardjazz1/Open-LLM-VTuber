@@ -1,5 +1,5 @@
 from pydantic import Field
-from typing import Dict, ClassVar, List
+from typing import List
 from .i18n import I18nMixin, Description
 
 
@@ -11,7 +11,9 @@ class BiliBiliLiveConfig(I18nMixin):
 
     DESCRIPTIONS = {
         "room_ids": Description(i18n_key="list_of_bilibili_live_room_ids_to_monitor"),
-        "sessdata": Description(i18n_key="sessdata_cookie_value_for_authenticated_requests"),
+        "sessdata": Description(
+            i18n_key="sessdata_cookie_value_for_authenticated_requests"
+        ),
     }
 
 
@@ -23,5 +25,7 @@ class LiveConfig(I18nMixin):
     )
 
     DESCRIPTIONS = {
-        "bilibili_live": Description(i18n_key="configuration_for_bilibili_live_streaming"),
+        "bilibili_live": Description(
+            i18n_key="configuration_for_bilibili_live_streaming"
+        ),
     }

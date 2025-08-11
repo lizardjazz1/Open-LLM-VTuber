@@ -1,6 +1,5 @@
 """LM Studio LLM implementation."""
 
-import asyncio
 from typing import AsyncIterator, List, Dict, Any
 from loguru import logger
 from .openai_compatible_llm import AsyncLLM
@@ -37,7 +36,7 @@ class LMStudioLLM(AsyncLLM):
             project_id=project_id,
             temperature=temperature,
         )
-        
+
         logger.info(f"Initialized LM Studio LLM with model: {model}")
         logger.info(f"LM Studio API URL: {base_url}")
 
@@ -64,4 +63,4 @@ class LMStudioLLM(AsyncLLM):
                 yield chunk
         except Exception as e:
             logger.error(f"LM Studio chat completion error: {e}")
-            raise 
+            raise

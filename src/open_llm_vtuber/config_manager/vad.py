@@ -20,8 +20,12 @@ class SileroVADConfig(I18nMixin):
         "target_sr": Description(i18n_key="target_audio_sample_rate"),
         "prob_threshold": Description(i18n_key="probability_threshold_for_vad"),
         "db_threshold": Description(i18n_key="decibel_threshold_for_vad"),
-        "required_hits": Description(i18n_key="number_of_consecutive_hits_required_to_consider_speech"),
-        "required_misses": Description(i18n_key="number_of_consecutive_misses_required_to_consider_silence"),
+        "required_hits": Description(
+            i18n_key="number_of_consecutive_hits_required_to_consider_speech"
+        ),
+        "required_misses": Description(
+            i18n_key="number_of_consecutive_misses_required_to_consider_silence"
+        ),
         "smoothing_window": Description(i18n_key="smoothing_window_size_for_vad"),
     }
 

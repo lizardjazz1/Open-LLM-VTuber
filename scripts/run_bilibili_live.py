@@ -1,4 +1,11 @@
 import os
+
+try:
+    from dotenv import load_dotenv  # type: ignore
+
+    load_dotenv()
+except Exception:
+    pass
 import sys
 import asyncio
 from loguru import logger

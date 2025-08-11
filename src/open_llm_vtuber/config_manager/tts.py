@@ -41,10 +41,16 @@ class EdgeTTSConfig(I18nMixin):
     pitch: str = Field("+0Hz", alias="pitch")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "voice": Description(i18n_key="voice_name_to_use_for_edge_tts_use_edge_tts_list_voices_to_list_available_voices"),
-        "rate": Description(i18n_key="speech_rate_adjustment_eg_10_10_0_limited_to_100_to_100"),
+        "voice": Description(
+            i18n_key="voice_name_to_use_for_edge_tts_use_edge_tts_list_voices_to_list_available_voices"
+        ),
+        "rate": Description(
+            i18n_key="speech_rate_adjustment_eg_10_10_0_limited_to_100_to_100"
+        ),
         "volume": Description(i18n_key="volume_adjustment_eg_10_10_0"),
-        "pitch": Description(i18n_key="pitch_adjustment_in_hz_eg_10hz_10hz_0hz_limited_to_50hz_to_50hz"),
+        "pitch": Description(
+            i18n_key="pitch_adjustment_in_hz_eg_10hz_10hz_0hz_limited_to_50hz_to_50hz"
+        ),
     }
 
 
@@ -67,7 +73,9 @@ class CosyvoiceTTSConfig(I18nMixin):
         "sft_dropdown": Description(i18n_key="sft_dropdown_value"),
         "prompt_text": Description(i18n_key="prompt_text"),
         "prompt_wav_upload_url": Description(i18n_key="url_for_prompt_wav_file_upload"),
-        "prompt_wav_record_url": Description(i18n_key="url_for_prompt_wav_file_recording"),
+        "prompt_wav_record_url": Description(
+            i18n_key="url_for_prompt_wav_file_recording"
+        ),
         "instruct_text": Description(i18n_key="instruction_text"),
         "seed": Description(i18n_key="random_seed"),
         "api_name": Description(i18n_key="api_endpoint_name"),
@@ -95,7 +103,9 @@ class Cosyvoice2TTSConfig(I18nMixin):
         "sft_dropdown": Description(i18n_key="sft_dropdown_value"),
         "prompt_text": Description(i18n_key="prompt_text"),
         "prompt_wav_upload_url": Description(i18n_key="url_for_prompt_wav_file_upload"),
-        "prompt_wav_record_url": Description(i18n_key="url_for_prompt_wav_file_recording"),
+        "prompt_wav_record_url": Description(
+            i18n_key="url_for_prompt_wav_file_recording"
+        ),
         "instruct_text": Description(i18n_key="instruction_text"),
         "stream": Description(i18n_key="streaming_inference"),
         "seed": Description(i18n_key="random_seed"),
@@ -115,7 +125,9 @@ class MeloTTSConfig(I18nMixin):
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "speaker": Description(i18n_key="speaker_name_eg_en_default_zh"),
         "language": Description(i18n_key="language_code_eg_en_zh"),
-        "device": Description(i18n_key="device_to_use_for_inference_auto_cpu_cuda_or_mps"),
+        "device": Description(
+            i18n_key="device_to_use_for_inference_auto_cpu_cuda_or_mps"
+        ),
         "speed": Description(i18n_key="speech_speed_10_is_normal_speed"),
     }
 
@@ -170,7 +182,9 @@ class FishAPITTSConfig(I18nMixin):
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "api_key": Description(i18n_key="api_key_for_fish_tts_api"),
-        "reference_id": Description(i18n_key="voice_reference_id_from_fish_audio_website"),
+        "reference_id": Description(
+            i18n_key="voice_reference_id_from_fish_audio_website"
+        ),
         "latency": Description(i18n_key="latency_mode_normal_or_balanced"),
         "base_url": Description(i18n_key="base_url_for_fish_tts_api"),
     }
@@ -186,7 +200,9 @@ class CoquiTTSConfig(I18nMixin):
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "model_name": Description(i18n_key="name_of_the_coqui_tts_model_to_use"),
-        "speaker_wav": Description(i18n_key="path_to_speaker_wav_file_for_voice_cloning"),
+        "speaker_wav": Description(
+            i18n_key="path_to_speaker_wav_file_for_voice_cloning"
+        ),
         "language": Description(i18n_key="language_code_eg_en_zh"),
         "device": Description(i18n_key="device_to_use_for_inference_cpu_cuda_or_auto"),
     }
@@ -212,10 +228,16 @@ class SherpaOnnxTTSConfig(I18nMixin):
         "vits_model": Description(i18n_key="path_to_vits_model_file"),
         "vits_lexicon": Description(i18n_key="path_to_lexicon_file_optional"),
         "vits_tokens": Description(i18n_key="path_to_tokens_file"),
-        "vits_data_dir": Description(i18n_key="path_to_espeak_ng_data_directory_optional"),
-        "vits_dict_dir": Description(i18n_key="path_to_jieba_dictionary_directory_optional_for_chinese"),
+        "vits_data_dir": Description(
+            i18n_key="path_to_espeak_ng_data_directory_optional"
+        ),
+        "vits_dict_dir": Description(
+            i18n_key="path_to_jieba_dictionary_directory_optional_for_chinese"
+        ),
         "tts_rule_fsts": Description(i18n_key="path_to_rule_fsts_file_optional"),
-        "max_num_sentences": Description(i18n_key="maximum_number_of_sentences_per_batch"),
+        "max_num_sentences": Description(
+            i18n_key="maximum_number_of_sentences_per_batch"
+        ),
         "sid": Description(i18n_key="speaker_id_for_multi_speaker_models"),
         "provider": Description(i18n_key="provider_for_inference_cpu_cuda_or_coreml"),
         "num_threads": Description(i18n_key="number_of_computation_threads"),
@@ -261,11 +283,21 @@ class OpenAITTSConfig(I18nMixin):
     file_extension: Literal["mp3", "wav"] = Field("mp3", alias="file_extension")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "model": Description(i18n_key="model_name_for_the_tts_server_overrides_default"),
-        "voice": Description(i18n_key="voice_names_for_the_tts_server_overrides_default"),
-        "api_key": Description(i18n_key="api_key_if_required_by_the_tts_server_overrides_default"),
-        "base_url": Description(i18n_key="base_url_of_the_tts_server_overrides_default"),
-        "file_extension": Description(i18n_key="audio_file_format_mp3_or_wav_defaults_to_mp3"),
+        "model": Description(
+            i18n_key="model_name_for_the_tts_server_overrides_default"
+        ),
+        "voice": Description(
+            i18n_key="voice_names_for_the_tts_server_overrides_default"
+        ),
+        "api_key": Description(
+            i18n_key="api_key_if_required_by_the_tts_server_overrides_default"
+        ),
+        "base_url": Description(
+            i18n_key="base_url_of_the_tts_server_overrides_default"
+        ),
+        "file_extension": Description(
+            i18n_key="audio_file_format_mp3_or_wav_defaults_to_mp3"
+        ),
     }
 
 
@@ -280,12 +312,20 @@ class SparkTTSConfig(I18nMixin):
     speed: int = Field(..., alias="speed")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "prompt_wav_upload": Description(i18n_key="reference_audio_used_when_using_voice_cloning"),
-        "api_url": Description(i18n_key="api_address_of_the_spark_tts_gradio_web_frontend_for_example_http1270017860voice_clone"),
-        "api_name": Description(i18n_key="the_api_endpoint_name_for_example_voice_clonevoice_creation"),
+        "prompt_wav_upload": Description(
+            i18n_key="reference_audio_used_when_using_voice_cloning"
+        ),
+        "api_url": Description(
+            i18n_key="api_address_of_the_spark_tts_gradio_web_frontend_for_example_http1270017860voice_clone"
+        ),
+        "api_name": Description(
+            i18n_key="the_api_endpoint_name_for_example_voice_clonevoice_creation"
+        ),
         "gender": Description(i18n_key="gender_of_the_voice_male_or_female"),
         "pitch": Description(i18n_key="pitch_shift_in_semitones_default_3range_1_5"),
-        "speed": Description(i18n_key="speed_of_the_voice_in_percent_default_3range_1_5"),
+        "speed": Description(
+            i18n_key="speed_of_the_voice_in_percent_default_3range_1_5"
+        ),
     }
 
 
@@ -303,7 +343,9 @@ class MinimaxTTSConfig(I18nMixin):
         "api_key": Description(i18n_key="minimax_api_key"),
         "model": Description(i18n_key="minimax_model_name"),
         "voice_id": Description(i18n_key="minimax_voice_id"),
-        "pronunciation_dict": Description(i18n_key="custom_pronunciation_dictionary_string"),
+        "pronunciation_dict": Description(
+            i18n_key="custom_pronunciation_dictionary_string"
+        ),
     }
 
 

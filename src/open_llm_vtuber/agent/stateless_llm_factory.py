@@ -41,6 +41,11 @@ class LLMFactory:
                 temperature=kwargs.get("temperature"),
                 use_harmony=kwargs.get("use_harmony", False),
                 max_tokens=kwargs.get("max_tokens", 150),
+                top_p=kwargs.get("top_p", 1.0),
+                frequency_penalty=kwargs.get("frequency_penalty", 0.0),
+                presence_penalty=kwargs.get("presence_penalty", 0.0),
+                stop=kwargs.get("stop"),
+                seed=kwargs.get("seed"),
             )
         if llm_provider == "stateless_llm_with_template":
             return StatelessLLMWithTemplate(

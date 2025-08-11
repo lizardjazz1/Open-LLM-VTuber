@@ -144,15 +144,18 @@ def filter_brackets(text: str) -> str:
     But preserve voice commands in curly braces (preserves both + and -).
     """
     import re
+
     # Find all voice commands with their positions (always capture sign if present)
-    voice_pattern = r'\{rate:(?:\+|\-)?\d+%\}|\{volume:(?:\+|\-)?\d+%\}|\{pitch:(?:\+|\-)?\d+Hz\}'
+    voice_pattern = (
+        r"\{rate:(?:\+|\-)?\d+%\}|\{volume:(?:\+|\-)?\d+%\}|\{pitch:(?:\+|\-)?\d+Hz\}"
+    )
     matches = list(re.finditer(voice_pattern, text))
-    
+
     # Save commands and their positions
     preserved = []
     for m in matches:
         preserved.append((m.start(), m.end(), m.group(0)))  # always original string!
-    
+
     # Remove all content in square brackets, but only outside voice commands
     result = []
     last = 0
@@ -165,8 +168,8 @@ def filter_brackets(text: str) -> str:
     chunk = text[last:]
     chunk = _filter_nested(chunk, "[", "]")
     result.append(chunk)
-    
-    return ''.join(result).strip()
+
+    return "".join(result).strip()
 
 
 def filter_parentheses(text: str) -> str:

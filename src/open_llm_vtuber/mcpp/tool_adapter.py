@@ -36,27 +36,31 @@ class ToolAdapter:
                 try:
                     logger.debug(f"MC: Fetching tools from server '{server_name}'...")
                     tools = await client.list_tools(server_name)
-                    
+
                     # Initialize server info
                     servers_info[server_name] = {}
-                    
+
                     # Format tools for this server
                     for tool in tools:
                         formatted_tool = self._format_tool(tool, server_name)
                         # Use tool.name as the key
                         formatted_tools[tool.name] = formatted_tool
-                        
+
                         # Add tool info to servers_info
                         servers_info[server_name][tool.name] = {
                             "description": tool.description,
                             "parameters": tool.inputSchema.get("properties", {}),
-                            "required": tool.inputSchema.get("required", [])
+                            "required": tool.inputSchema.get("required", []),
                         }
-                        
-                    logger.debug(f"MC: Successfully fetched {len(tools)} tools from server '{server_name}'")
-                    
+
+                    logger.debug(
+                        f"MC: Successfully fetched {len(tools)} tools from server '{server_name}'"
+                    )
+
                 except Exception as e:
-                    logger.error(f"MC: Failed to fetch tools from server '{server_name}': {e}")
+                    logger.error(
+                        f"MC: Failed to fetch tools from server '{server_name}': {e}"
+                    )
                     continue
 
         logger.info(f"MC: Total tools fetched: {len(formatted_tools)}")
@@ -216,7 +220,7 @@ class ToolAdapter:
         servers_info, formatted_tools_dict = await self.get_server_and_tool_info(
             enabled_servers
         )
-        
+
         # Добавляем детальное логирование серверов и инструментов
         logger.info(f"MC: Servers info: {list(servers_info.keys())}")
         if formatted_tools_dict:

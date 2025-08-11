@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Open‑LLM‑VTuber • Python Frontend</title>
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="/py-static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Open‑LLM‑VTuber — Python Frontend</h1>
+      <nav>
+        <a href="/">Default Frontend</a>
+        <a href="/web-tool/">Web Tool</a>
+      </nav>
+    </header>
+
+    <main class="container">
+      <section class="status">
+        <div>
+          <strong>Backend:</strong> <span id="backendStatus">connecting…</span>
+        </div>
+        <div>
+          <strong>Config:</strong> <span id="configInfo">–</span>
+        </div>
+        <div>
+          <strong>Group:</strong> <span id="groupInfo">–</span>
+        </div>
+      </section>
+
+      <section class="chat">
+        <div id="messages" class="messages" aria-live="polite"></div>
+        <form id="textForm" class="input-row">
+          <input id="textInput" type="text" placeholder="Type a message…" autocomplete="off" />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+
+      <section class="controls">
+        <button id="btnInterrupt" title="Stop current conversation">Interrupt</button>
+        <button id="btnFetchHistory" title="Load history list">History</button>
+        <button id="btnFetchConfigs" title="Load available configs">Configs</button>
+      </section>
+    </main>
+
+    <footer class="footer">v2 Python frontend variant • connects to /client-ws</footer>
+
+    <script>
+      window.__PY_FRONTEND__ = {
+        wsUrl: (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/client-ws',
+        ttsWsUrl: (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/tts-ws',
+      };
+    </script>
+    <script src="/py-static/app.js" type="module"></script>
+  </body>
+</html>

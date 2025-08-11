@@ -16,21 +16,21 @@ from openai import (
 from openai.types.chat import ChatCompletionChunk
 from openai.types.chat.chat_completion_chunk import ChoiceDeltaToolCall
 from loguru import logger
+import time
 
 from .stateless_llm_interface import StatelessLLMInterface
 from ...mcpp.types import ToolCallObject
+from ...debug_settings import ensure_log_sinks
+
+_DEBUG_WS_UNUSED, DEBUG_LLM = ensure_log_sinks()
 
 # Harmony imports
 try:
     from openai_harmony import (
         load_harmony_encoding,
         HarmonyEncodingName,
-        Role,
-        Message,
-        Conversation,
-        SystemContent,
-        TextContent,
     )
+
     HARMONY_AVAILABLE = True
 except ImportError:
     HARMONY_AVAILABLE = False
@@ -48,6 +48,11 @@ class AsyncLLM(StatelessLLMInterface):
         temperature: float = 1.0,
         use_harmony: bool = False,
         max_tokens: int = 150,
+        top_p: float = 1.0,
+        frequency_penalty: float = 0.0,
+        presence_penalty: float = 0.0,
+        stop: list[str] | None = None,
+        seed: int | None = None,
     ):
         """
         Initializes an instance of the `AsyncLLM` class.
@@ -66,6 +71,11 @@ class AsyncLLM(StatelessLLMInterface):
         self.temperature = temperature
         self.use_harmony = use_harmony and HARMONY_AVAILABLE
         self.max_tokens = max_tokens
+        self.top_p = top_p
+        self.frequency_penalty = frequency_penalty
+        self.presence_penalty = presence_penalty
+        self.stop = stop
+        self.seed = seed
         self.client = AsyncOpenAI(
             base_url=base_url,
             organization=organization_id,
@@ -77,7 +87,9 @@ class AsyncLLM(StatelessLLMInterface):
         # Инициализируем Harmony если доступен и включен
         if self.use_harmony:
             try:
-                self.harmony_enc = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
+                self.harmony_enc = load_harmony_encoding(
+                    HarmonyEncodingName.HARMONY_GPT_OSS
+                )
                 logger.info("Harmony encoding initialized for OpenAICompatibleLLM")
             except Exception as e:
                 logger.error(f"Failed to initialize Harmony encoding: {e}")
@@ -114,14 +126,28 @@ class AsyncLLM(StatelessLLMInterface):
         # Tool call related state variables
         accumulated_tool_calls = {}
         in_tool_call = False
-        
+
         # Harmony parsing variables
         if self.use_harmony:
             accumulated_response = ""
             in_final_channel = False
             final_content = ""
 
+        if DEBUG_LLM:
+            try:
+                logger.bind(dst="llm").log(
+                    "INFO",
+                    (
+                        f"LLM OUT (openai-compatible): model={self.model}, "
+                        f"params={{'temperature': {self.temperature}, 'top_p': {self.top_p}, 'max_tokens': {self.max_tokens}}}, "
+                        f"messages={messages}"
+                    ),
+                )
+            except Exception:
+                pass
         try:
+            t_start = time.perf_counter()
+            t_first_chunk: float | None = None
             # If system prompt is provided, add it to the messages
             messages_with_system = messages
             if system:
@@ -140,7 +166,18 @@ class AsyncLLM(StatelessLLMInterface):
                 model=self.model,
                 stream=True,
                 temperature=self.temperature,
-                max_tokens=getattr(self, 'max_tokens', 150),  # Ограничиваем длину ответа
+                max_tokens=getattr(
+                    self, "max_tokens", 150
+                ),  # Ограничиваем длину ответа
+                top_p=getattr(self, "top_p", 1.0),
+                frequency_penalty=getattr(self, "frequency_penalty", 0.0),
+                presence_penalty=getattr(self, "presence_penalty", 0.0),
+                stop=getattr(self, "stop", None)
+                if getattr(self, "stop", None)
+                else NOT_GIVEN,
+                seed=getattr(self, "seed", None)
+                if getattr(self, "seed", None) is not None
+                else NOT_GIVEN,
                 tools=available_tools,
             )
             logger.debug(
@@ -148,6 +185,15 @@ class AsyncLLM(StatelessLLMInterface):
             )
 
             async for chunk in stream:
+                if t_first_chunk is None:
+                    t_first_chunk = time.perf_counter()
+                    logger.bind(component="perf").info(
+                        {
+                            "stage": "llm_ttfb_ms",
+                            "latency_ms": int((t_first_chunk - t_start) * 1000),
+                            "model": self.model,
+                        }
+                    )
                 if self.support_tools:
                     has_tool_calls = (
                         hasattr(chunk.choices[0].delta, "tool_calls")
@@ -220,22 +266,31 @@ class AsyncLLM(StatelessLLMInterface):
                     continue
                 elif chunk.choices[0].delta.content is None:
                     chunk.choices[0].delta.content = ""
-                
+
                 content = chunk.choices[0].delta.content
-                
+
                 # Harmony parsing logic
                 if self.use_harmony and content:
                     accumulated_response += content
-                    
+
                     # Check for final channel markers
                     if "<|channel|>final<|message|>" in accumulated_response:
                         in_final_channel = True
                         # Extract content after the final channel marker
-                        final_start = accumulated_response.find("<|channel|>final<|message|>")
+                        final_start = accumulated_response.find(
+                            "<|channel|>final<|message|>"
+                        )
                         if final_start != -1:
-                            final_content = accumulated_response[final_start + len("<|channel|>final<|message|>"):]
+                            final_content = accumulated_response[
+                                final_start + len("<|channel|>final<|message|>") :
+                            ]
                             # Remove any remaining Harmony tokens
-                            final_content = final_content.replace("<|end|>", "").replace("<|start|>", "").replace("assistant", "").replace("<|channel|>final<|message|>", "")
+                            final_content = (
+                                final_content.replace("<|end|>", "")
+                                .replace("<|start|>", "")
+                                .replace("assistant", "")
+                                .replace("<|channel|>final<|message|>", "")
+                            )
                             yield final_content
                     elif in_final_channel:
                         # We're in the final channel, yield the content
@@ -276,13 +331,14 @@ class AsyncLLM(StatelessLLMInterface):
                 )
                 # Добавляем детальное логирование инструментов
                 if tools and tools != NOT_GIVEN:
-                    tool_names = [tool.get('function', {}).get('name', 'unknown') for tool in tools]
+                    tool_names = [
+                        tool.get("function", {}).get("name", "unknown")
+                        for tool in tools
+                    ]
                     logger.warning(
                         f"Attempted to use tools: {tool_names} with model {self.model}"
                     )
-                logger.warning(
-                    f"Full API error message: {str(e)}"
-                )
+                logger.warning(f"Full API error message: {str(e)}")
                 yield "__API_NOT_SUPPORT_TOOLS__"
                 # Не выходим из функции, позволяем обработчику в агенте обработать сигнал
                 # return

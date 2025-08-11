@@ -1,6 +1,6 @@
 # config_manager/stateless_llm.py
 from pydantic import BaseModel, Field
-from typing import Literal, Optional, Dict, ClassVar
+from typing import Literal, ClassVar
 from .i18n import I18nMixin, Description
 
 
@@ -51,6 +51,11 @@ class OpenAICompatibleConfig(StatelessLLMBaseConfig):
     organization_id: str | None = Field(None, alias="organization_id")
     project_id: str | None = Field(None, alias="project_id")
     temperature: float = Field(1.0, alias="temperature")
+    top_p: float = Field(1.0, alias="top_p")
+    frequency_penalty: float = Field(0.0, alias="frequency_penalty")
+    presence_penalty: float = Field(0.0, alias="presence_penalty")
+    stop: list[str] | None = Field(None, alias="stop")
+    seed: int | None = Field(None, alias="seed")
 
     _OPENAI_COMPATIBLE_DESCRIPTIONS: ClassVar[dict[str, Description]] = {
         "base_url": Description(i18n_key="config.llm.base_url"),
@@ -59,6 +64,11 @@ class OpenAICompatibleConfig(StatelessLLMBaseConfig):
         "project_id": Description(i18n_key="config.llm.project_id"),
         "model": Description(i18n_key="config.llm.model"),
         "temperature": Description(i18n_key="config.llm.temperature"),
+        "top_p": Description(i18n_key="config.llm.top_p"),
+        "frequency_penalty": Description(i18n_key="config.llm.frequency_penalty"),
+        "presence_penalty": Description(i18n_key="config.llm.presence_penalty"),
+        "stop": Description(i18n_key="config.llm.stop"),
+        "seed": Description(i18n_key="config.llm.seed"),
     }
 
     DESCRIPTIONS: ClassVar[dict[str, Description]] = {
@@ -238,8 +248,12 @@ class StatelessLLMConfigs(I18nMixin, BaseModel):
     mistral_llm: MistralConfig | None = Field(None, alias="mistral_llm")
 
     DESCRIPTIONS: ClassVar[dict[str, Description]] = {
-        "stateless_llm_with_template": Description(i18n_key="config.llm.providers.stateless_llm_with_template"),
-        "openai_compatible_llm": Description(i18n_key="config.llm.providers.openai_compatible_llm"),
+        "stateless_llm_with_template": Description(
+            i18n_key="config.llm.providers.stateless_llm_with_template"
+        ),
+        "openai_compatible_llm": Description(
+            i18n_key="config.llm.providers.openai_compatible_llm"
+        ),
         "ollama_llm": Description(i18n_key="config.llm.providers.ollama_llm"),
         "lmstudio_llm": Description(i18n_key="config.llm.providers.lmstudio_llm"),
         "openai_llm": Description(i18n_key="config.llm.providers.openai_llm"),

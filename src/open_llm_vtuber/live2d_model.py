@@ -1,7 +1,4 @@
 import json
-import os
-from pathlib import Path
-from typing import Dict, List
 
 from loguru import logger
 
@@ -74,13 +71,27 @@ class Live2dModel:
         try:
             with open(file_path, "rb") as file:
                 raw_data = file.read()
-            detected = chardet.detect(raw_data)
-            detected_encoding = detected["encoding"]
+            try:
+                import chardet  # type: ignore
+            except Exception:
+                chardet = None  # type: ignore
+            detected_encoding = None
+            if chardet is not None:  # type: ignore[truthy-bool]
+                detected = chardet.detect(raw_data)  # type: ignore[attr-defined]
+                detected_encoding = (
+                    detected.get("encoding") if isinstance(detected, dict) else None
+                )
 
             if detected_encoding:
                 try:
                     return raw_data.decode(detected_encoding)
                 except UnicodeDecodeError:
+                    pass
+            else:
+                # Fallback to utf-8-sig as last resort
+                try:
+                    return raw_data.decode("utf-8-sig")
+                except Exception:
                     pass
         except Exception as e:
             logger.error(f"Error detecting encoding for {file_path}: {e}")

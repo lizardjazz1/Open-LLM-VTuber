@@ -1,5 +1,4 @@
 import asyncio
-import base64
 from typing import AsyncIterator, Optional
 import json
 import websockets
@@ -7,7 +6,7 @@ from loguru import logger
 from pathlib import Path
 
 from .agent_interface import AgentInterface
-from ..output_types import AudioOutput, Actions, DisplayText
+from ..output_types import AudioOutput
 from ..input_types import BatchInput
 from ...chat_history_manager import get_metadata, update_metadate
 
@@ -153,10 +152,7 @@ class HumeAIAgent(AgentInterface):
         # Send message to Hume AI
         message = {
             "type": "user_message",
-            "message": {
-                "content": text.strip(),
-                "role": "user"
-            }
+            "message": {"content": text.strip(), "role": "user"},
         }
 
         await self._ws.send(json.dumps(message))
@@ -165,7 +161,7 @@ class HumeAIAgent(AgentInterface):
         # Process responses
         async for message in self._ws:
             data = json.loads(message)
-            
+
             if data.get("type") == "assistant_message":
                 content = data.get("message", {}).get("content", "")
                 if content:
@@ -173,7 +169,7 @@ class HumeAIAgent(AgentInterface):
                     audio_output = AudioOutput(
                         text=content,
                         audio_data=b"",  # Hume AI doesn't provide audio directly
-                        audio_format="wav"
+                        audio_format="wav",
                     )
                     yield audio_output
 

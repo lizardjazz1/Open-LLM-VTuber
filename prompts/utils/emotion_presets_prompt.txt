@@ -1,0 +1,14 @@
+EMOTION PRESETS
+
+Use exact combinations when the emotion strongly matches the context:
+
+Joy: {rate:+20%}{volume:+10%}{pitch:+20Hz}
+Laugh: {rate:+30%}{volume:+20%}{pitch:+30Hz}
+Smile: {rate:+15%}{volume:+5%}{pitch:+18Hz}
+Sadness: {rate:-20%}{volume:-10%}{pitch:+17Hz}
+Fear: {rate:-15%}{volume:-5%}{pitch:+16Hz}
+Thinking: {rate:-5%}{volume:+5%}{pitch:+16Hz}
+Neutral: {rate:-5%}{volume:+0%}{pitch:+15Hz}
+Whisper: {rate:-30%}{volume:-50%}{pitch:+15Hz}
+Excitement: {rate:+25%}{volume:+15%}{pitch:+25Hz}
+Calm: {rate:-10%}{volume:+5%}{pitch:+17Hz} 

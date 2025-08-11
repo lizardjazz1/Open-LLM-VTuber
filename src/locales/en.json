@@ -19,7 +19,7 @@
     "initializing_context": "Initializing server context...",
     "context_initialized": "Server context initialized successfully.",
     "context_init_failed": "Failed to initialize server context: {error}",
-    "starting_on": "Starting server on {host}:{port}"
+    "starting_on": "Starting server on http://{host}:{port}/"
   },
   "config": {
     "loading": "Loading configuration...",
@@ -256,7 +256,30 @@
     "error": "Twitch error occurred",
     "authentication_failed": "Twitch authentication failed",
     "rate_limit": "Twitch rate limit exceeded",
-    "channel_not_found": "Channel not found: {channel}"
+    "channel_not_found": "Channel not found: {channel}",
+    "client_initialized": "Twitch client initialized",
+    "disabled": "Twitch integration disabled",
+    "missing_credentials": "Missing Twitch credentials",
+    "api_initialized": "Twitch API initialized",
+    "init_error": "Twitch API initialization error: {error}",
+    "not_initialized": "Twitch client not initialized",
+    "connection_error": "Twitch connection error: {error}",
+    "callback_set": "Twitch message callback set",
+    "message_processed": "Message from {user} processed: {message}",
+    "message_error": "Twitch message processing error: {error}",
+    "subscription": "Subscription from {user} for {months} months",
+    "subscription_error": "Subscription processing error: {error}",
+    "command": "Command from {user}: {command}",
+    "command_error": "Command processing error: {error}",
+    "callback_error": "Twitch callback error: {error}",
+    "connection_lost": "Twitch connection lost",
+    "monitor_error": "Twitch monitoring error: {error}",
+    "reconnecting": "Reconnecting to Twitch...",
+    "reconnected": "Reconnected to Twitch",
+    "reconnect_failed": "Failed to reconnect to Twitch",
+    "reconnect_error": "Reconnection error: {error}",
+    "message_processing_error": "Twitch message processing error: {error}",
+    "agent_processing_error": "Agent processing error: {error}"
   },
   "memory": {
     "loading": "Loading memory...",
@@ -345,7 +368,12 @@
     "initializing_shared_tool_adapter_within_load_from_config": "Initializing shared ToolAdapter within load_from_config.",
     "initializing_translator": "Initializing Translator: {provider}",
     "failed_to_load_configuration_from": "Failed to load configuration from {config_file_name}",
-    "error_switching_configuration": "Error switching configuration: {error}"
+    "error_switching_configuration": "Error switching configuration: {error}",
+    "initializing_twitch": "Initializing Twitch client...",
+    "twitch_initialized": "Twitch client successfully initialized",
+    "twitch_connection_failed": "Failed to connect to Twitch",
+    "twitch_init_failed": "Failed to initialize Twitch client",
+    "twitch_error": "Twitch error: {error}"
   },
   "mcp": {
     "client_initialized": "MCPC: Initialized MCPClient instance.",

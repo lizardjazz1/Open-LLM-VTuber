@@ -83,6 +83,18 @@ class AgentFactory:
                 tool_manager=tool_manager,
                 tool_executor=tool_executor,
                 mcp_prompt_string=mcp_prompt_string,
+                summarize_max_tokens=basic_memory_settings.get(
+                    "summarize_max_tokens", 256
+                ),
+                summarize_timeout_s=basic_memory_settings.get(
+                    "summarize_timeout_s", 25
+                ),
+                sentiment_max_tokens=basic_memory_settings.get(
+                    "sentiment_max_tokens", 96
+                ),
+                sentiment_timeout_s=basic_memory_settings.get(
+                    "sentiment_timeout_s", 12
+                ),
             )
 
         elif conversation_agent_choice == "mem0_agent":

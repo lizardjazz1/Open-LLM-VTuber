@@ -1,9 +1,7 @@
 """MCP Client for Open-LLM-Vtuber."""
 
-import asyncio
-import json
 from contextlib import AsyncExitStack
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
 from loguru import logger
 from datetime import timedelta
@@ -83,7 +81,9 @@ class MCPClient:
             logger.info(t("mcp.connection_successful", server=server_name))
             return session
         except Exception as e:
-            logger.exception(t("mcp.connection_failed", server=server_name, error=str(e)))
+            logger.exception(
+                t("mcp.connection_failed", server=server_name, error=str(e))
+            )
             raise RuntimeError(
                 f"MCPC: Failed to connect to server '{server_name}'."
             ) from e
@@ -124,7 +124,14 @@ class MCPClient:
                 if response.content and hasattr(response.content[0], "text")
                 else "Unknown server error"
             )
-            logger.error(t("mcp.tool_error", server=server_name, tool=tool_name, error=error_text))
+            logger.error(
+                t(
+                    "mcp.tool_error",
+                    server=server_name,
+                    tool=tool_name,
+                    error=error_text,
+                )
+            )
             # Return error information within the standard structure
             return {
                 "metadata": getattr(response, "metadata", {}),
@@ -163,24 +170,19 @@ class MCPClient:
     async def aclose(self) -> None:
         """Close all active sessions and clean up resources."""
         logger.info(t("mcp.closing_connections", count=len(self.active_sessions)))
-        
-        # Close all active sessions
-        for server_name, session in self.active_sessions.items():
-            try:
-                await session.close()
-            except Exception as e:
-                logger.warning(t("mcp.session_close_error", server=server_name, error=str(e)))
-        
-        # Close the exit stack
+
+        # Rely on the shared exit stack to gracefully close all entered contexts
+        # (both stdio transports and ClientSession instances). Explicitly closing
+        # sessions here can conflict with the exit stack and cause cancel-scope errors.
         try:
             await self.exit_stack.aclose()
         except Exception as e:
             logger.warning(t("mcp.exit_stack_error", error=str(e)))
-        
-        # Clear active sessions
+
+        # Clear active sessions and caches
         self.active_sessions.clear()
         self._list_tools_cache.clear()
-        
+
         logger.info(t("mcp.client_closed"))
 
     async def __aenter__(self) -> "MCPClient":

@@ -4,28 +4,46 @@
 # 如果你希望使用英文版本，请用 config_templates/conf.default.yaml 的内容替换本文件。
 # ===========================
 
-# 系统设置：与服务器初始化相关的设置
+# # 系统设置：与服务器初始化相关的设置
+
+#   conf_version: 'v1.2.0' # 配置文件版本
+#   host: 'localhost' # 服务器监听的地址，'0.0.0.0' 表示监听所有网络接口；如果需要安全，可以使用 '127.0.0.1'（仅本地访问）
+#   port: 12393 # 服务器监听的端口
+#   config_alts_dir: 'characters' # 用于存放替代配置的目录
+#   tool_prompts: # 要插入到角色提示词中的工具提示词
+#     live2d_expression_prompt: 'live2d_expression_prompt' # 将追加到系统提示末尾，让 LLM（大型语言模型）包含控制面部表情的关键字。支持的关键字将自动加载到 `[<insert_emomap_keys>]` 的位置。
+#     # 启用 think_tag_prompt 可让不具备思考输出的 LLM 也能展示内心想法、心理活动和动作（以括号形式呈现），但不会进行语音合成。更多详情请参考 think_tag_prompt。
+#     # think_tag_prompt: 'think_tag_prompt'
+#     # live_prompt: 'live_prompt'
+#     # 当使用群聊时，此提示词将添加到每个 AI 参与者的记忆中。
+#     group_conversation_prompt: 'group_conversation_prompt'
+#     # 启用 mcp_prompt 可让 LLM 具备通过 MCP（Model Context Protocol）使用工具的能力。
+#     # 请注意：mcp_prompt 由 Agent 决定是否使用。
+#     mcp_prompt: 'mcp_prompt'
+#     # 当AI被要求主动说话时使用的提示词
+#     proactive_speak_prompt: 'proactive_speak_prompt'
+#     # 用来增强LLM输出可发音文本的提示词
+#     # speakable_prompt: 'speakable_prompt'
+#     # 额外指导 LLM 如何使用工具的提示词
+#     # tool_guidance_prompt: 'tool_guidance_prompt' 
 system_config:
-  conf_version: 'v1.2.0' # 配置文件版本
-  host: 'localhost' # 服务器监听的地址，'0.0.0.0' 表示监听所有网络接口；如果需要安全，可以使用 '127.0.0.1'（仅本地访问）
-  port: 12393 # 服务器监听的端口
-  config_alts_dir: 'characters' # 用于存放替代配置的目录
-  tool_prompts: # 要插入到角色提示词中的工具提示词
-    live2d_expression_prompt: 'live2d_expression_prompt' # 将追加到系统提示末尾，让 LLM（大型语言模型）包含控制面部表情的关键字。支持的关键字将自动加载到 `[<insert_emomap_keys>]` 的位置。
-    # 启用 think_tag_prompt 可让不具备思考输出的 LLM 也能展示内心想法、心理活动和动作（以括号形式呈现），但不会进行语音合成。更多详情请参考 think_tag_prompt。
-    # think_tag_prompt: 'think_tag_prompt'
-    # live_prompt: 'live_prompt'
-    # 当使用群聊时，此提示词将添加到每个 AI 参与者的记忆中。
-    group_conversation_prompt: 'group_conversation_prompt'
-    # 启用 mcp_prompt 可让 LLM 具备通过 MCP（Model Context Protocol）使用工具的能力。
-    # 请注意：mcp_prompt 由 Agent 决定是否使用。
-    mcp_prompt: 'mcp_prompt'
-    # 当AI被要求主动说话时使用的提示词
-    proactive_speak_prompt: 'proactive_speak_prompt'
-    # 用来增强LLM输出可发音文本的提示词
-    # speakable_prompt: 'speakable_prompt'
-    # 额外指导 LLM 如何使用工具的提示词
-    # tool_guidance_prompt: 'tool_guidance_prompt' 
+  conf_version: "1.0"
+  host: "127.0.0.1"
+  port: 8000
+  language: "zh"
+  config_alts_dir: "config_templates/"
+  config_alt: null
+  enable_proxy: false
+  # // DEBUG: [FIXED] /logs 端点令牌（可选） | Ref: 4,15
+  logging_token: ""
+  twitch_config:
+    enabled: false
+    channel_name: "your_channel_name"
+    app_id: ""
+    app_secret: ""
+    max_message_length: 300
+    max_recent_messages: 10
+  tool_prompts: {}
 
 # 默认角色的配置
 character_config:
@@ -441,10 +459,6 @@ character_config:
       # 比如...你说话并阅读英语字幕，而 TTS 说日语之类的
       translate_audio: False # 警告：请确保翻译引擎配置成功再开启此选项，否则会翻译失败
       translate_provider: 'deeplx' # 翻译提供商, 目前支持 deeplx 或 tencent
-
-      deeplx:
-        deeplx_target_lang: 'JA'
-        deeplx_api_endpoint: 'http://localhost:1188/v2/translate'
 
 
       #  腾讯文本翻译  每月500万字符  记得关闭后付费,需要手动前往 机器翻译控制台 > 系统设置 关闭

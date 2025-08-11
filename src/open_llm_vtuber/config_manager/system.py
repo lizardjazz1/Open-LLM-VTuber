@@ -6,13 +6,15 @@ from .i18n import I18nMixin, Description
 
 class TwitchConfig(BaseModel):
     """Twitch integration configuration."""
-    
+
     enabled: bool = Field(False, description="Enable Twitch integration")
     channel_name: str = Field("your_channel_name", description="Twitch channel name")
     app_id: str = Field("", description="Twitch application ID")
     app_secret: str = Field("", description="Twitch application secret")
     max_message_length: int = Field(300, description="Maximum message length")
-    max_recent_messages: int = Field(10, description="Maximum number of recent messages")
+    max_recent_messages: int = Field(
+        10, description="Maximum number of recent messages"
+    )
 
 
 class SystemConfig(I18nMixin):
@@ -25,8 +27,12 @@ class SystemConfig(I18nMixin):
     config_alts_dir: str = Field(..., alias="config_alts_dir")
     config_alt: Optional[str] = Field(None, alias="config_alt")
     enable_proxy: bool = Field(False, alias="enable_proxy")
-    twitch_config: TwitchConfig = Field(default_factory=TwitchConfig, alias="twitch_config")
+    twitch_config: TwitchConfig = Field(
+        default_factory=TwitchConfig, alias="twitch_config"
+    )
     tool_prompts: Dict[str, str] = Field(..., alias="tool_prompts")
+    # // DEBUG: [FIXED] Token for /logs auth | Ref: 4,15
+    logging_token: Optional[str] = Field("", alias="logging_token")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "conf_version": Description(i18n_key="config.conf_version"),
@@ -38,6 +44,7 @@ class SystemConfig(I18nMixin):
         "enable_proxy": Description(i18n_key="config.enable_proxy"),
         "twitch_config": Description(i18n_key="config.twitch_config"),
         "tool_prompts": Description(i18n_key="config.tool_prompts"),
+        "logging_token": Description(i18n_key="config.logging_token"),
     }
 
     @model_validator(mode="after")

@@ -20,5 +20,7 @@ class Config(I18nMixin, BaseModel):
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "system_config": Description(i18n_key="system_configuration_settings"),
         "character_config": Description(i18n_key="character_configuration_settings"),
-        "live_config": Description(i18n_key="live_streaming_platform_integration_settings"),
+        "live_config": Description(
+            i18n_key="live_streaming_platform_integration_settings"
+        ),
     }

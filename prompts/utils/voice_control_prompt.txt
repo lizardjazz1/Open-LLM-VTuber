@@ -1,0 +1,12 @@
+VOICE CONTROL RULES
+
+Use the following voice control commands inline to modulate TTS (they will be parsed and applied by TTS, then hidden in UI):
+
+{rate:+X%} / {rate:-X%}  - speaking rate
+{volume:+X%} / {volume:-X%}  - volume
+{pitch:+XHz} / {pitch:-XHz}  - pitch
+
+Guidelines:
+- Keep commands concise and only when needed
+- Prefer presets from Emotion Presets if applicable
+- Do not overuse; keep speech natural 

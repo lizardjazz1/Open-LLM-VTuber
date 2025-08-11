@@ -13,8 +13,12 @@ class DeepLXConfig(I18nMixin):
     deeplx_api_endpoint: str = Field(..., alias="deeplx_api_endpoint")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "deeplx_target_lang": Description(i18n_key="target_language_code_for_deeplx_translation"),
-        "deeplx_api_endpoint": Description(i18n_key="api_endpoint_url_for_deeplx_service"),
+        "deeplx_target_lang": Description(
+            i18n_key="target_language_code_for_deeplx_translation"
+        ),
+        "deeplx_api_endpoint": Description(
+            i18n_key="api_endpoint_url_for_deeplx_service"
+        ),
     }
 
 
@@ -35,8 +39,12 @@ class TencentConfig(I18nMixin):
         "secret_id": Description(i18n_key="tencent_secret_id"),
         "secret_key": Description(i18n_key="tencent_secret_key"),
         "region": Description(i18n_key="region_for_tencent_service"),
-        "source_lang": Description(i18n_key="source_language_code_for_tencent_translation"),
-        "target_lang": Description(i18n_key="target_language_code_for_tencent_translation"),
+        "source_lang": Description(
+            i18n_key="source_language_code_for_tencent_translation"
+        ),
+        "target_lang": Description(
+            i18n_key="target_language_code_for_tencent_translation"
+        ),
     }
 
 
@@ -54,10 +62,16 @@ class TranslatorConfig(I18nMixin):
     tencent: Optional[TencentConfig] = Field(None, alias="tencent")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "translate_audio": Description(i18n_key="enable_audio_translation_requires_deeplx_deployment"),
-        "translate_provider": Description(i18n_key="translation_service_provider_to_use"),
+        "translate_audio": Description(
+            i18n_key="enable_audio_translation_requires_deeplx_deployment"
+        ),
+        "translate_provider": Description(
+            i18n_key="translation_service_provider_to_use"
+        ),
         "deeplx": Description(i18n_key="configuration_for_deeplx_translation_service"),
-        "tencent": Description(i18n_key="configuration_for_tencent_translation_service"),
+        "tencent": Description(
+            i18n_key="configuration_for_tencent_translation_service"
+        ),
     }
 
     @model_validator(mode="after")
@@ -89,10 +103,20 @@ class TTSPreprocessorConfig(I18nMixin):
     translator_config: TranslatorConfig = Field(..., alias="translator_config")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
-        "remove_special_char": Description(i18n_key="remove_special_characters_from_the_input_text"),
+        "remove_special_char": Description(
+            i18n_key="remove_special_characters_from_the_input_text"
+        ),
         "ignore_brackets": Description(i18n_key="ignore_everything_inside_brackets"),
-        "ignore_parentheses": Description(i18n_key="ignore_everything_inside_parentheses"),
-        "ignore_asterisks": Description(i18n_key="ignore_everything_wrapped_inside_asterisks"),
-        "ignore_angle_brackets": Description(i18n_key="ignore_everything_wrapped_inside_text"),
-        "translator_config": Description(i18n_key="configuration_for_translation_services"),
+        "ignore_parentheses": Description(
+            i18n_key="ignore_everything_inside_parentheses"
+        ),
+        "ignore_asterisks": Description(
+            i18n_key="ignore_everything_wrapped_inside_asterisks"
+        ),
+        "ignore_angle_brackets": Description(
+            i18n_key="ignore_everything_wrapped_inside_text"
+        ),
+        "translator_config": Description(
+            i18n_key="configuration_for_translation_services"
+        ),
     }

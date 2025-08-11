@@ -15,11 +15,11 @@
     "websocket_connected": "WebSocket клиент подключен",
     "websocket_disconnected": "WebSocket клиент отключен",
     "websocket_error": "Произошла ошибка WebSocket",
-    "proxy_enabled": "Режим прокси включен - эндпоинт /proxy-ws будет доступен",
+    "proxy_enabled": "Режим прокси включен - /proxy-ws endpoint будет доступен",
     "initializing_context": "Инициализация контекста сервера...",
     "context_initialized": "Контекст сервера успешно инициализирован.",
     "context_init_failed": "Не удалось инициализировать контекст сервера: {error}",
-    "starting_on": "Запуск сервера на {host}:{port}"
+    "starting_on": "Запуск сервера на http://{host}:{port}/"
   },
   "config": {
     "loading": "Загрузка конфигурации...",
@@ -186,7 +186,30 @@
     "error": "Произошла ошибка Twitch",
     "authentication_failed": "Ошибка аутентификации Twitch",
     "rate_limit": "Превышен лимит запросов Twitch",
-    "channel_not_found": "Канал не найден: {channel}"
+    "channel_not_found": "Канал не найден: {channel}",
+    "client_initialized": "Twitch клиент инициализирован",
+    "disabled": "Twitch интеграция отключена",
+    "missing_credentials": "Отсутствуют учетные данные Twitch",
+    "api_initialized": "Twitch API инициализирован",
+    "init_error": "Ошибка инициализации Twitch API: {error}",
+    "not_initialized": "Twitch клиент не инициализирован",
+    "connection_error": "Ошибка подключения к Twitch: {error}",
+    "callback_set": "Callback для Twitch сообщений установлен",
+    "message_processed": "Сообщение от {user} обработано: {message}",
+    "message_error": "Ошибка обработки сообщения Twitch: {error}",
+    "subscription": "Подписка от {user} на {months} месяцев",
+    "subscription_error": "Ошибка обработки подписки: {error}",
+    "command": "Команда от {user}: {command}",
+    "command_error": "Ошибка обработки команды: {error}",
+    "callback_error": "Ошибка callback Twitch: {error}",
+    "connection_lost": "Соединение с Twitch потеряно",
+    "monitor_error": "Ошибка мониторинга Twitch: {error}",
+    "reconnecting": "Переподключение к Twitch...",
+    "reconnected": "Переподключено к Twitch",
+    "reconnect_failed": "Не удалось переподключиться к Twitch",
+    "reconnect_error": "Ошибка переподключения: {error}",
+    "message_processing_error": "Ошибка обработки сообщения Twitch: {error}",
+    "agent_processing_error": "Ошибка обработки сообщения агентом: {error}"
   },
   "memory": {
     "loading": "Загрузка памяти...",
@@ -275,7 +298,12 @@
     "initializing_shared_tool_adapter_within_load_from_config": "Инициализация общего ToolAdapter в load_from_config.",
     "initializing_translator": "Инициализация переводчика: {provider}",
     "failed_to_load_configuration_from": "Не удалось загрузить конфигурацию из {config_file_name}",
-    "error_switching_configuration": "Ошибка переключения конфигурации: {error}"
+    "error_switching_configuration": "Ошибка переключения конфигурации: {error}",
+    "initializing_twitch": "Инициализация Twitch клиента...",
+    "twitch_initialized": "Twitch клиент успешно инициализирован",
+    "twitch_connection_failed": "Не удалось подключиться к Twitch",
+    "twitch_init_failed": "Не удалось инициализировать Twitch клиент",
+    "twitch_error": "Ошибка Twitch: {error}"
   },
   "mcp": {
     "client_initialized": "MCPC: Экземпляр MCPClient инициализирован.",

@@ -57,7 +57,7 @@ class ServerRegistry:
             if server_details.get("enabled", True) is False:
                 logger.debug(f"MCPSM: Server '{server_name}' is disabled. Skipping.")
                 continue
-                
+
             if "command" not in server_details or "args" not in server_details:
                 logger.warning(
                     f"MCPSM: Invalid server details for '{server_name}'. Ignoring."

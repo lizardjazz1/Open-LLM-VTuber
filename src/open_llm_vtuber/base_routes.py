@@ -3,13 +3,16 @@ import json
 from uuid import uuid4
 import numpy as np
 from datetime import datetime
-from fastapi import APIRouter, WebSocket, UploadFile, File, Response
+from fastapi import APIRouter, WebSocket, UploadFile, File, Response, Request
 from starlette.responses import JSONResponse
 from starlette.websockets import WebSocketDisconnect
 from loguru import logger
 from .service_context import ServiceContext
 from .websocket_handler import WebSocketHandler
 from .proxy_handler import ProxyHandler
+
+# // DEBUG: [FIXED] Add masking helper | Ref: 4,15
+from .logging_utils import set_request_id, truncate_and_hash
 
 
 def init_client_ws_route(default_context_cache: ServiceContext) -> APIRouter:
@@ -139,11 +142,16 @@ def init_webtool_routes(default_context_cache: ServiceContext) -> APIRouter:
         )
 
     @router.post("/asr")
-    async def transcribe_audio(file: UploadFile = File(...)):
+    async def transcribe_audio(request: Request, file: UploadFile = File(...)):
         """
         Endpoint for transcribing audio using the ASR engine
         """
-        logger.info(f"Received audio file for transcription: {file.filename}")
+        # // DEBUG: [FIXED] Generate request_id for HTTP route | Ref: 5,11
+        rid = str(uuid4())
+        set_request_id(rid)
+        logger.bind(component="api").info(
+            {"route": "/asr", "status": "start", "request_id": rid}
+        )
 
         try:
             contents = await file.read()
@@ -178,18 +186,25 @@ def init_webtool_routes(default_context_cache: ServiceContext) -> APIRouter:
             text = await default_context_cache.asr_engine.async_transcribe_np(
                 audio_array
             )
-            logger.info(f"Transcription result: {text}")
-            return {"text": text}
+            sampled = truncate_and_hash(text)
+            logger.bind(component="api").info(
+                {"route": "/asr", "status": "success", **sampled}
+            )
+            return {"text": text, "request_id": rid}
 
         except ValueError as e:
-            logger.error(f"Audio format error: {e}")
+            logger.bind(component="api").error(
+                {"route": "/asr", "status": "error", "error_details": str(e)}
+            )
             return Response(
                 content=json.dumps({"error": str(e)}),
                 status_code=400,
                 media_type="application/json",
             )
         except Exception as e:
-            logger.error(f"Error during transcription: {e}")
+            logger.bind(component="api").error(
+                {"route": "/asr", "status": "error", "error_details": str(e)}
+            )
             return Response(
                 content=json.dumps(
                     {"error": "Internal server error during transcription"}

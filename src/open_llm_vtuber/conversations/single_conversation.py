@@ -3,6 +3,7 @@ import asyncio
 import json
 from loguru import logger
 import numpy as np
+import time
 
 from .conversation_utils import (
     create_batch_input,
@@ -17,9 +18,22 @@ from .types import WebSocketSend
 from .tts_manager import TTSTaskManager
 from ..chat_history_manager import store_message
 from ..service_context import ServiceContext
+from ..agent.input_types import TextSource
+from ..agent.agents.basic_memory_agent import BasicMemoryAgent
+from ..memory.memory_schema import (
+    MemoryItemTyped,
+    MemoryKind,
+    determine_memory_kind,
+    calculate_importance,
+    extract_tags,
+    detect_emotion,
+)
 
 # Import necessary types from agent outputs
 from ..agent.output_types import SentenceOutput, AudioOutput
+
+# // DEBUG: [FIXED] Sampling helper for logs | Ref: 6
+from ..logging_utils import truncate_and_hash
 
 
 async def process_single_conversation(
@@ -58,14 +72,201 @@ async def process_single_conversation(
         input_text = await process_user_input(
             user_input, context.asr_engine, websocket_send
         )
+        # // DEBUG: [FIXED] Structured log for inbound text with sampling | Ref: 6
+        logger.bind(component="conversation").info(
+            {"event": "user_input", **truncate_and_hash(input_text)}
+        )
+
+        # Determine overrides
+        from_name_override = (metadata or {}).get("from_name") if metadata else None
+        text_source_override = (
+            (metadata or {}).get("text_source") if metadata else TextSource.INPUT
+        )
+
+        effective_from_name = from_name_override or context.character_config.human_name
+        effective_text_source = text_source_override or TextSource.INPUT
 
         # Create batch input
         batch_input = create_batch_input(
             input_text=input_text,
             images=images,
-            from_name=context.character_config.human_name,
+            from_name=effective_from_name,
             metadata=metadata,
+            text_source=effective_text_source,
         )
+
+        # If Twitch message, inject current mood towards this user
+        try:
+            if effective_text_source == TextSource.TWITCH:
+                current_mood = None
+                try:
+                    current_mood = context.user_mood.get(effective_from_name)  # type: ignore[attr-defined]
+                except Exception:
+                    current_mood = None
+                if isinstance(current_mood, (int, float)):
+                    from ..agent.input_types import TextData
+
+                    mood_text = f"[Внутреннее состояние] Текущее отношение к пользователю {effective_from_name}: {current_mood:.2f} (−1…1)."
+                    batch_input.texts.insert(
+                        0,
+                        TextData(
+                            source=TextSource.INPUT,
+                            content=mood_text,
+                            from_name=None,
+                        ),
+                    )
+        except Exception:
+            pass
+
+        # Retrieve relevant long-term memory snippets (if available)
+        try:
+            if (
+                context.memory_enabled
+                and context.memory_service
+                and context.memory_service.enabled
+                and input_text
+            ):
+                # Новый поиск релевантных воспоминаний с коррекцией самоссылки
+                hits = context.memory_service.get_relevant_memories(
+                    query=input_text,
+                    conf_uid=context.character_config.conf_uid,
+                    limit=getattr(context, "memory_top_k", 4),
+                )
+                if hits:
+                    # prepend memory snippets into user prompt as context
+                    from ..agent.input_types import TextData
+
+                    # Режим самоссылки: backend|prompt|hybrid (по умолчанию backend)
+                    self_ref_mode = getattr(
+                        context.character_config, "self_reference_mode", "backend"
+                    )
+
+                    def _looks_first_person(txt: str) -> bool:
+                        low = (txt or "").lower()
+                        first_person = any(
+                            p in low
+                            for p in [
+                                "я ",
+                                "мне ",
+                                "меня ",
+                                "моя ",
+                                "мои ",
+                                "сам",
+                                "сама",
+                            ]
+                        ) or low.startswith("я")
+                        gender = str(
+                            getattr(
+                                context.character_config, "character_gender", "female"
+                            )
+                            or "female"
+                        ).lower()
+                        if gender == "female":
+                            gender_words = [
+                                "рада",
+                                "готова",
+                                "согласна",
+                                "устала",
+                                "сама",
+                                "думала",
+                                "сказала",
+                                "хотела",
+                            ]
+                        elif gender == "male":
+                            gender_words = [
+                                "рад",
+                                "готов",
+                                "согласен",
+                                "устал",
+                                "сам",
+                                "думал",
+                                "сказал",
+                                "хотел",
+                            ]
+                        else:
+                            gender_words = []  # neutral: не требуем слов по роду
+                        gender_ok = (
+                            True
+                            if not gender_words
+                            else any(w in low for w in gender_words)
+                        )
+                        import re as _re
+
+                        char_name = str(
+                            getattr(context.character_config, "character_name", "Нейри")
+                            or "Нейри"
+                        ).strip()
+                        # Поиск имени как отдельного слова (учёт любых символов и пробелов в имени)
+                        name_pat = _re.escape(char_name)
+                        name_third = (
+                            bool(
+                                _re.search(
+                                    rf"\b{name_pat}\b", low, flags=_re.IGNORECASE
+                                )
+                            )
+                            if char_name
+                            else False
+                        )
+                        return first_person and gender_ok and not name_third
+
+                    corrected: List[str] = []
+                    for h in hits:
+                        kind = h.get("kind") or MemoryKind.USER
+                        text = str(h.get("text") or "")
+                        try:
+                            apply_adjust = False
+                            if self_ref_mode == "backend":
+                                apply_adjust = True
+                            elif self_ref_mode == "prompt":
+                                apply_adjust = False
+                            elif self_ref_mode == "hybrid":
+                                # Если уже ок в первом лице и соответствует выбранному роду — не трогаем
+                                apply_adjust = (
+                                    not _looks_first_person(text)
+                                    if kind == MemoryKind.SELF
+                                    else True
+                                )
+                            else:
+                                apply_adjust = True
+
+                            if apply_adjust:
+                                text = (
+                                    context.memory_service.adjust_context_for_speaker(
+                                        memory_text=text,
+                                        memory_kind=kind,
+                                        speaker="NEYRI",
+                                        current_user_name=effective_from_name,
+                                        character_name=str(
+                                            getattr(
+                                                context.character_config,
+                                                "character_name",
+                                                "Нейри",
+                                            )
+                                            or "Нейри"
+                                        ),
+                                        character_gender=str(
+                                            getattr(
+                                                context.character_config,
+                                                "character_gender",
+                                                "female",
+                                            )
+                                            or "female"
+                                        ),
+                                    )
+                                )
+                        except Exception:
+                            pass
+                        corrected.append(f"[Memory] {text}")
+                    batch_input.texts.insert(
+                        0,
+                        TextData(
+                            source=TextSource.INPUT,
+                            content="\n".join(corrected),
+                            from_name=None,
+                        ),
+                    )
+        except Exception as e:
+            logger.debug(f"Memory search skipped: {e}")
 
         # Store user message (check if we should skip storing to history)
         skip_history = metadata and metadata.get("skip_history", False)
@@ -75,8 +276,30 @@ async def process_single_conversation(
                 history_uid=context.history_uid,
                 role="human",
                 content=input_text,
-                name=context.character_config.human_name,
+                name=effective_from_name,
             )
+
+            # Классификация и сохранение пользовательского ввода в долгосрочную память
+            try:
+                if context.memory_service and context.memory_service.enabled:
+                    kind = determine_memory_kind(
+                        text=input_text,
+                        speaker="USER",
+                        conf=context.character_config,
+                    )
+                    item = MemoryItemTyped(
+                        text=input_text,
+                        kind=kind,
+                        conf_uid=context.character_config.conf_uid,
+                        history_uid=context.history_uid,
+                        importance=calculate_importance(input_text),
+                        timestamp=float(time.time()),
+                        tags=extract_tags(input_text),
+                        emotion=detect_emotion(input_text),
+                    )
+                    context.memory_service.add_memory(item)
+            except Exception as e:
+                logger.debug(f"User memory add skipped: {e}")
 
         if skip_history:
             logger.debug("Skipping storing user input to history (proactive speak)")
@@ -157,7 +380,55 @@ async def process_single_conversation(
                 name=context.character_config.character_name,
                 avatar=context.character_config.avatar,
             )
-            logger.info(f"AI response: {full_response}")
+            # // DEBUG: [FIXED] Structured log for AI response with sampling | Ref: 6
+            logger.bind(component="conversation").info(
+                {"event": "ai_response", **truncate_and_hash(full_response)}
+            )
+
+            # Update rolling summary for memory priming if agent supports it
+            try:
+                if isinstance(context.agent_engine, BasicMemoryAgent):
+                    context.agent_engine.update_history_summary(
+                        context.character_config.conf_uid, context.history_uid
+                    )
+            except Exception:
+                pass
+
+            # Upsert key facts to long-term memory (very lightweight rule)
+            try:
+                if context.memory_service and context.memory_service.enabled:
+                    # naive fact extraction: split by sentences; take short lines
+                    import re
+
+                    def sanitize_for_memory(text: str) -> str:
+                        # Remove emotion tags like [joy], [thinking], [confused]
+                        text = re.sub(r"\[[^\]]+\]", " ", text)
+                        # Remove TTS voice commands {rate:..}{volume:..}{pitch:..}
+                        text = re.sub(
+                            r"\{\s*(rate|volume|pitch)\s*:[^}]*\}",
+                            " ",
+                            text,
+                            flags=re.IGNORECASE,
+                        )
+                        # Collapse repeated whitespace
+                        text = re.sub(r"\s+", " ", text)
+                        return text.strip()
+
+                    sentences = []
+                    for raw in full_response.split("."):
+                        clean = sanitize_for_memory(raw)
+                        if 6 <= len(clean) <= 220:
+                            sentences.append(clean)
+                    top = sentences[:5]
+                    if top:
+                        context.memory_service.add_facts(
+                            top,
+                            context.character_config.conf_uid,
+                            context.history_uid,
+                            kind="ai",
+                        )
+            except Exception as e:
+                logger.debug(f"Memory upsert skipped: {e}")
 
         return full_response  # Return accumulated full_response
 

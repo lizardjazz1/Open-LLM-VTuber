@@ -26,6 +26,8 @@ class TTSTaskManager:
         # Counter for maintaining order
         self._sequence_counter = 0
         self._next_sequence_to_send = 0
+        # Persist last seen voice commands so they carry over between segments until overridden
+        self._last_voice_cmds: str = ""  # e.g., "{rate:+15%}{volume:+5%}{pitch:+18Hz}"
 
     async def speak(
         self,
@@ -62,17 +64,52 @@ class TTSTaskManager:
             await self._send_silent_payload(display_text, actions, current_sequence)
             return
 
-        logger.debug(
-            f"🏃Queuing TTS task for: '''{tts_text}''' (by {display_text.name})"
+        logger.info(
+            f"Enqueuing TTS task with sequence number {self._sequence_counter}:\n"
+            f"display_text='''{display_text.text}'''\n"
+            f"tts_text='''{tts_text}''' (by {display_text.name})"
         )
-        
+
         # Log voice commands for debugging
-        if '{rate:' in tts_text or '{volume:' in tts_text or '{pitch:' in tts_text:
+        if "{rate:" in tts_text or "{volume:" in tts_text or "{pitch:" in tts_text:
             logger.info(f"🎵 Voice commands detected in tts_manager: {tts_text}")
-        elif '[neutral]' in tts_text or '[joy]' in tts_text or '[smile]' in tts_text or '[laugh]' in tts_text or '[anger]' in tts_text or '[disgust]' in tts_text or '[fear]' in tts_text or '[sadness]' in tts_text or '[surprise]' in tts_text or '[confused]' in tts_text or '[thinking]' in tts_text or '[excited]' in tts_text or '[shy]' in tts_text or '[wink]' in tts_text:
+        elif (
+            "[neutral]" in tts_text
+            or "[joy]" in tts_text
+            or "[smile]" in tts_text
+            or "[laugh]" in tts_text
+            or "[anger]" in tts_text
+            or "[disgust]" in tts_text
+            or "[fear]" in tts_text
+            or "[sadness]" in tts_text
+            or "[surprise]" in tts_text
+            or "[confused]" in tts_text
+            or "[thinking]" in tts_text
+            or "[excited]" in tts_text
+            or "[shy]" in tts_text
+            or "[wink]" in tts_text
+        ):
             logger.info(f"😊 Emotion commands detected in tts_manager: {tts_text}")
         else:
             logger.debug(f"🔍 No voice or emotion commands in tts_manager: {tts_text}")
+
+        # Carry-over voice commands across segments: if current text has none, prepend last seen
+        voice_pattern = r"\{rate:(?:\+|\-)?\d+%\}|\{volume:(?:\+|\-)?\d+%\}|\{pitch:(?:\+|\-)?\d+Hz\}"
+        has_current_cmds = re.search(voice_pattern, tts_text) is not None
+        if has_current_cmds:
+            # Update last seen command string to the concatenation of commands in order
+            cmds = re.findall(voice_pattern, tts_text)
+            if cmds:
+                self._last_voice_cmds = "".join(cmds)
+                logger.info(
+                    f"🎛️ Updated carry-over voice cmds: '{self._last_voice_cmds}'"
+                )
+        elif self._last_voice_cmds:
+            # Prepend previously used commands to keep consistent voice until overridden
+            tts_text = f"{self._last_voice_cmds}{tts_text}"
+            logger.info(
+                f"🔁 Applied carry-over voice cmds to current segment → '{self._last_voice_cmds}'"
+            )
 
         # Get current sequence number
         current_sequence = self._sequence_counter
@@ -174,15 +211,30 @@ class TTSTaskManager:
     async def _generate_audio(self, tts_engine: TTSInterface, text: str) -> str:
         """Generate audio file from text"""
         logger.debug(f"🏃Generating audio for '''{text}'''...")
-        
+
         # Add logging for voice commands
-        if '{rate:' in text or '{volume:' in text or '{pitch:' in text:
+        if "{rate:" in text or "{volume:" in text or "{pitch:" in text:
             logger.info(f"🎵 Voice commands detected in _generate_audio: {text}")
-        elif '[neutral]' in text or '[joy]' in text or '[smile]' in text or '[laugh]' in text or '[anger]' in text or '[disgust]' in text or '[fear]' in text or '[sadness]' in text or '[surprise]' in text or '[confused]' in text or '[thinking]' in text or '[excited]' in text or '[shy]' in text or '[wink]' in text:
+        elif (
+            "[neutral]" in text
+            or "[joy]" in text
+            or "[smile]" in text
+            or "[laugh]" in text
+            or "[anger]" in text
+            or "[disgust]" in text
+            or "[fear]" in text
+            or "[sadness]" in text
+            or "[surprise]" in text
+            or "[confused]" in text
+            or "[thinking]" in text
+            or "[excited]" in text
+            or "[shy]" in text
+            or "[wink]" in text
+        ):
             logger.info(f"😊 Emotion commands detected in _generate_audio: {text}")
         else:
             logger.debug(f"🔍 No voice or emotion commands in _generate_audio: {text}")
-            
+
         return await tts_engine.async_generate_audio(
             text=text,
             file_name_no_ext=f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}",
@@ -197,3 +249,5 @@ class TTSTaskManager:
         self._next_sequence_to_send = 0
         # Create a new queue to clear any pending items
         self._payload_queue = asyncio.Queue()
+        # Reset carry-over voice commands
+        self._last_voice_cmds = ""
