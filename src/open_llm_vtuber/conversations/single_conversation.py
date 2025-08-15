@@ -118,21 +118,13 @@ async def process_single_conversation(
             )
             if n > 0 and (context._msg_counter % n == 0):
                 try:
-                    svc = getattr(context, "vtuber_memory_service", None)
-                    if (
-                        svc
-                        and getattr(svc, "enabled", False)
-                        and hasattr(svc, "consolidate_recent")
-                    ):
-                        # WHY: lightweight consolidation based on recent messages window
-                        svc.consolidate_recent(
-                            conf_uid=context.character_config.conf_uid,
-                            history_uid=context.history_uid,
-                            limit=getattr(context, "memory_top_k", 4),
-                        )
-                        logger.debug(
-                            f"Triggered periodic consolidation at {context._msg_counter} messages"
-                        )
+                    # Use the unified consolidation flow in ServiceContext
+                    await context.trigger_memory_consolidation(
+                        reason="periodic_n_messages"
+                    )
+                    logger.debug(
+                        f"Triggered periodic consolidation at {context._msg_counter} messages"
+                    )
                 except Exception as _:
                     pass
         except Exception:
