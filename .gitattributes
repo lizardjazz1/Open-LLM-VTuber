@@ -1,3 +1,4 @@
 static/libs/* linguist-vendored
 llm/hub/models--sentence-transformers--paraphrase-multilingual-MiniLM-L12-v2/snapshots/86741b4e3f5cb7765a600d3a3d55a0f6a6cb443d/model.safetensors !text !filter !merge !diff
+*.safetensors filter=lfs diff=lfs merge=lfs -text
 *.safetensors !text !filter !merge !diff
