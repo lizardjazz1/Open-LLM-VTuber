@@ -92,3 +92,8 @@ test_*.mp3
 update_*.py
 migration_*.py
 *.backup
+
+# Local data directories (do not push)
+llm/
+memgpt/
+voices/
