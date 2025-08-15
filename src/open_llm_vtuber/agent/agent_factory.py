@@ -3,7 +3,6 @@ from loguru import logger
 
 from .agents.agent_interface import AgentInterface
 from .agents.basic_memory_agent import BasicMemoryAgent
-from .stateless_llm_factory import LLMFactory as StatelessLLMFactory
 from .agents.hume_ai import HumeAIAgent
 from .agents.letta_agent import LettaAgent
 
@@ -44,20 +43,44 @@ class AgentFactory:
             if not llm_provider:
                 raise ValueError("LLM provider not specified for basic memory agent")
 
-            # Get the LLM config for this provider
-            llm_config: dict = llm_configs.get(llm_provider)
-            interrupt_method: Literal["system", "user"] = llm_config.pop(
+            # Determine chat vs memory providers/keys (backward compatible)
+            chat_llm_provider = (
+                basic_memory_settings.get("chat_llm_provider") or llm_provider
+            )
+            chat_llm_key = basic_memory_settings.get("chat_llm_key") or llm_provider
+            memory_llm_provider = (
+                basic_memory_settings.get("memory_llm_provider") or chat_llm_provider
+            )
+            memory_llm_key = basic_memory_settings.get("memory_llm_key") or chat_llm_key
+
+            # Get interrupt method from chat llm config if present
+            chat_llm_config: dict = llm_configs.get(chat_llm_key) or llm_configs.get(
+                llm_provider
+            )
+            interrupt_method: Literal["system", "user"] = (chat_llm_config or {}).pop(
                 "interrupt_method", "user"
             )
 
-            if not llm_config:
+            if not chat_llm_config:
                 raise ValueError(
-                    f"Configuration not found for LLM provider: {llm_provider}"
+                    f"Configuration not found for chat LLM key/provider: {chat_llm_key}"
                 )
 
-            # Create the stateless LLM
-            llm = StatelessLLMFactory.create_llm(
-                llm_provider=llm_provider, system_prompt=system_prompt, **llm_config
+            # Create the stateless chat LLM
+            from .stateless_llm_factory import LLMFactory as StatelessLLMFactory
+
+            chat_llm = StatelessLLMFactory.create_llm(
+                llm_provider=chat_llm_provider,
+                system_prompt=system_prompt,
+                **chat_llm_config,
+            )
+
+            # Create the memory LLM (may be same as chat)
+            memory_llm_config: dict = llm_configs.get(memory_llm_key) or chat_llm_config
+            memory_llm = StatelessLLMFactory.create_llm(
+                llm_provider=memory_llm_provider,
+                system_prompt=system_prompt,
+                **memory_llm_config,
             )
 
             tool_prompts = kwargs.get("system_config", {}).get("tool_prompts", {})
@@ -66,10 +89,17 @@ class AgentFactory:
             tool_manager: Optional[ToolManager] = kwargs.get("tool_manager")
             tool_executor: Optional[ToolExecutor] = kwargs.get("tool_executor")
             mcp_prompt_string: str = kwargs.get("mcp_prompt_string", "")
+            server_label: str = str(
+                kwargs.get("system_config", {}).get("server_label", "server")
+            )
 
-            # Create the agent with the LLM and live2d_model
+            # No-think directive flag
+            no_think_mode = bool(basic_memory_settings.get("no_think_mode", False))
+
+            # Create the agent with the LLMs and live2d_model
             return BasicMemoryAgent(
-                llm=llm,
+                llm=chat_llm,
+                memory_llm=memory_llm,  # NEW: pass memory llm
                 system=system_prompt,
                 live2d_model=live2d_model,
                 tts_preprocessor_config=tts_preprocessor_config,
@@ -95,6 +125,8 @@ class AgentFactory:
                 sentiment_timeout_s=basic_memory_settings.get(
                     "sentiment_timeout_s", 12
                 ),
+                server_label=server_label,
+                no_think_mode=no_think_mode,
             )
 
         elif conversation_agent_choice == "mem0_agent":

@@ -43,6 +43,10 @@ class InterceptHandler(logging.Handler):
             level = logger.level(record.levelname).name
         except Exception:
             level = "INFO"
+        # Drop extremely noisy and problematic debug logs from 'torio' which
+        # include exc_info and trigger recursive exception formatting.
+        if record.name.startswith("torio") and record.levelno < logging.WARNING:
+            return
         frame, depth = logging.currentframe(), 2
         while frame and frame.f_code.co_filename == logging.__file__:
             frame = frame.f_back  # type: ignore[assignment]
@@ -56,6 +60,20 @@ def configure_stdlib_bridge() -> None:
     """Bridge stdlib root and common third-party loggers to loguru."""
     # Root logger
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
+
+    class _DropTelemetryFilter(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            msg = record.getMessage()
+            if not isinstance(msg, str):
+                return True
+            return "Failed to send telemetry event" not in msg
+
+    # Drop noisy Chroma telemetry errors at the stdlib layer without affecting functionality
+    try:
+        root_logger = logging.getLogger()
+        root_logger.addFilter(_DropTelemetryFilter())
+    except Exception:
+        pass
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access", "fastapi", "asyncio"):
         logging.getLogger(name).handlers = [InterceptHandler()]
         logging.getLogger(name).propagate = False
@@ -69,6 +87,13 @@ def configure_stdlib_bridge() -> None:
             pass
         lg.propagate = False
         lg.disabled = True
+
+    # Reduce verbosity and avoid recursive exception formatting from 'torio' FFmpeg loader
+    for name in ("torio", "torio._extension"):
+        try:
+            logging.getLogger(name).setLevel(logging.WARNING)
+        except Exception:
+            pass
 
 
 def truncate_and_hash(text: str, limit_bytes: int = 4096) -> dict[str, Any]:

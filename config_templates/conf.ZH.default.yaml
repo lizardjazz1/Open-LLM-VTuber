@@ -27,29 +27,46 @@
 #     # 额外指导 LLM 如何使用工具的提示词
 #     # tool_guidance_prompt: 'tool_guidance_prompt' 
 system_config:
-  conf_version: "1.0"
+  conf_version: "v1.2.0"
   host: "127.0.0.1"
-  port: 8000
+  port: 12393
+  # 应用语言（如：'en', 'ru', 'zh', 'jp', 'fr'）
   language: "zh"
-  config_alts_dir: "config_templates/"
+  # 用于标注服务端消息的前缀（用于提示词）：如 'server', 'home'
+  server_label: "server"
+  # 备用配置目录与选择
+  config_alts_dir: "characters"
   config_alt: null
+  # 启用代理模式（用于直播平台集成）
   enable_proxy: false
-  # // DEBUG: [FIXED] /logs 端点令牌（可选） | Ref: 4,15
-  logging_token: ""
+  # 前端日志采集设置
+  client_log_ingest_enabled: false        # 启用 /logs 接收前端日志（默认关闭）
+  client_log_ingest_require_token: false  # 本地默认：不需要令牌；生产建议启用
+  # Twitch 集成配置
   twitch_config:
     enabled: false
     channel_name: "your_channel_name"
-    app_id: ""
-    app_secret: ""
+    app_id: ""   # 从 https://dev.twitch.tv/console 获取
+    app_secret: ""  # 从 https://dev.twitch.tv/console 获取
     max_message_length: 300
     max_recent_messages: 10
-  tool_prompts: {}
+  # 工具提示，会追加到人物提示词之后
+  tool_prompts:
+    live2d_expression_prompt: 'live2d_expression_prompt'
+    group_conversation_prompt: 'group_conversation_prompt'
+    mcp_prompt: 'mcp_prompt'
+    proactive_speak_prompt: 'proactive_speak_prompt'
   # 记忆模块
   relationships_db_path: 'cache/relationships.sqlite3'
-  memory_consolidation_interval_sec: 900
+  memory_consolidation_interval_sec: 1800
+  deep_consolidation_every_n_streams: 5
+  # NEW: 每 N 条消息触发一次整理
+  consolidate_every_n_messages: 30
   chroma_persist_dir: 'cache/chroma'
-  chroma_collection: 'vtuber_memory'
+  chroma_collection: vtuber_ltm
   embeddings_model: 'paraphrase-multilingual-MiniLM-L12-v2'
+  embeddings_api_key: ''   # 可选：设置以使用外部嵌入服务
+  embeddings_api_base: ''  # 可选：覆盖外部嵌入服务的基础 URL
 
 # 默认角色的配置
 character_config:
@@ -72,7 +89,7 @@ character_config:
   # Vtuber 记忆模块
   vtuber_memory:
     enabled: true
-    provider: 'default'  # 'default'（使用 Chroma 封装），未来可选 'letta'、'memgpt'
+    provider: 'memgpt'  # 'memgpt'（使用 Chroma 封装），或 'letta'
 
   #  =================== LLM 后端设置 ===================
 
@@ -85,10 +102,15 @@ character_config:
         # 从 llm_config 中选择一个 llm 提供商
         # 并在相应的字段中设置所需的参数
         # 例如：
-        # 'openai_compatible_llm', 'llama_cpp_llm', 'claude_llm', 'ollama_llm'
+        # 'openai_兼容_llm', 'llama_cpp_llm', 'claude_llm', 'ollama_llm'
         # 'openai_llm', 'gemini_llm', 'zhipu_llm', 'deepseek_llm', 'groq_llm'
         # 'mistral_llm', 'lmstudio_llm' 之类的
         llm_provider: 'ollama_llm' # 使用的 LLM 提供商
+        # 可选：分别指定聊天用 LLM 与 记忆/分析用 LLM 的配置键
+        # chat_llm_provider: 'openai_compatible_llm'
+        # chat_llm_key: 'chat_lmstudio_qwen3'
+        # memory_llm_provider: 'openai_compatible_llm'
+        # memory_llm_key: 'memory_lmstudio_gemma'
         # 是否在第一句回应时遇上逗号就直接生成音频以减少首句延迟（默认：True）
         faster_first_response: True
         # 句子分割方法：'regex' 或 'pysbd'
@@ -97,6 +119,18 @@ character_config:
         # 'Plus' 意味着它包含了通过 OpenAI API 调用工具的能力。
         use_mcpp: False
         mcp_enabled_servers: ["time", "ddg-search"] # 启用的 MCP 服务器
+        # 记忆代理设置
+        summarize_max_tokens: 256
+        summarize_timeout_s: 25
+        sentiment_max_tokens: 96
+        sentiment_timeout_s: 12
+        consolidate_recent_messages: 120
+        # VTuber 个性和行为设置
+        stream_mode: true  # 启用 VTuber 行为流式模式
+        spicy_mode: false  # 启用更讽刺的响应
+        personality_consistency: 0.8  # 个性一致性水平（0.0 到 1.0）
+        creativity_level: 0.7  # 响应生成创造力水平（0.0 到 1.0）
+        emotional_adaptability: 0.9  # 情感适应性水平（0.0 到 1.0）
 
       hume_ai_agent:
         api_key: ''
@@ -118,7 +152,21 @@ character_config:
         # 有关更多详细信息，请查看他们的文档
 
     llm_configs:
-      # 一个配置池，用于不同代理中使用的所有无状态 llm 提供商的凭据和连接详细信息
+      # 这是一个 LLM 配置池，用于不同代理类型可复用的连接信息
+
+      # 示例：LM Studio 双 LLM 配置（取消注释并自行修改）
+      # chat_lmstudio_qwen3:
+      #   base_url: 'http://127.0.0.1:1234/v1'
+      #   model: 'qwen/qwen3-14b'
+      #   temperature: 0.7
+      #   top_p: 0.9
+      #   stream: true
+      # memory_lmstudio_gemma:
+      #   base_url: 'http://127.0.0.1:1234/v1'
+      #   model: 'gemma-3-270m-it'
+      #   temperature: 0.2
+      #   top_p: 0.9
+      #   stream: false
 
       # 无状态 LLM 模板 (对于非 ChatML 的 LLM, 通常而言不用管这个配置)
       stateless_llm_with_template:
@@ -167,6 +215,10 @@ character_config:
         base_url: 'http://localhost:1234/v1'
         model: 'qwen2.5:latest'
         temperature: 1.0 # value between 0 to 2
+        # 更好的 VTuber 响应的额外生成设置
+        stop_sequences: ["\n\n", "Human:", "Assistant:", "User:", "AI:"]
+        repetition_penalty: 1.1
+        length_penalty: 0.8
 
       openai_llm:
         llm_api_key: 'Your Open AI API key' # OpenAI API 密钥
@@ -293,6 +345,21 @@ character_config:
       model: 'whisper-large-v3-turbo' # 或者 'whisper-large-v3'
       lang: '' # 留空表示自动
 
+  # === 语音活动检测 (VAD) ===
+  vad_config:
+    vad_model: null
+
+    silero_vad:
+      orig_sr: 16000
+      target_sr: 16000
+      prob_threshold: 0.4
+      db_threshold: 60
+      required_hits: 3
+      required_misses: 24
+      smoothing_window: 5
+      min_speech_ms: 250
+      max_speech_ms: 12000
+
   # =================== 文本转语音 ===================
   tts_config:
     tts_model: 'edge_tts' # 使用的文本转语音模型
@@ -300,7 +367,7 @@ character_config:
     #   'azure_tts', 'pyttsx3_tts', 'edge_tts', 'bark_tts',
     #   'cosyvoice_tts', 'melo_tts', 'coqui_tts',
     #   'fish_api_tts', 'x_tts', 'gpt_sovits_tts', 'sherpa_onnx_tts'
-    #   'minimax_tts'
+    #   'minimax_tts', 'openai_tts', 'spark_tts'
 
     siliconflow_tts:
       api_url: "https://api.siliconflow.cn/v1/audio/speech"
@@ -326,7 +393,15 @@ character_config:
     edge_tts:
       # 查看文档：https://github.com/rany2/edge-tts
       # 使用 `edge-tts --list-voices` 列出所有可用语音
-      voice: zh-CN-XiaoxiaoNeural # 'en-US-AvaMultilingualNeural' #'zh-CN-XiaoxiaoNeural' # 'ja-JP-NanamiNeural'
+      voice: 'zh-CN-XiaoxiaoNeural' # 'en-US-AvaMultilingualNeural' #'zh-CN-XiaoxiaoNeural' # 'ja-JP-NanamiNeural'
+      rate: '+0%'
+      volume: '+0%'
+      pitch: '+0Hz'
+      # 可靠性与离线兜底设置
+      timeout_ms: 15000       # 请求超时（毫秒）
+      max_retries: 1          # 失败重试次数
+      enable_fallback: true   # 失败时启用 Piper 离线兜底
+      piper_model_path: ''    # Piper *.onnx 模型路径（可选）
 
     # pyttsx3_tts 没有任何配置。
 
@@ -443,44 +518,6 @@ character_config:
       # 自定义发音字典，默认为空。
       # 示例: '{"tone": ["测试/(ce4)(shi4)", "危险/dangerous"]}'
       pronunciation_dict: ''
-
-  # =================== Voice Activity Detection ===================
-  vad_config:
-    vad_model: null
-
-    silero_vad:
-      orig_sr: 16000 # 原始音频采样率
-      target_sr: 16000 # 目标音频采样率
-      prob_threshold: 0.4 # 语音活动检测的概率阈值
-      db_threshold: 60 # 语音活动检测的分贝阈值
-      required_hits: 3 # 连续命中次数以确认语音
-      required_misses: 24 # 连续未命中次数以确认静音
-      smoothing_window: 5 # 语音活动检测的平滑窗口大小
-
-  tts_preprocessor_config:
-    # 关于进入 TTS 的文本预处理的设置
-
-    remove_special_char: True # 从音频生成中删除表情符号等特殊字符
-    ignore_brackets: True # 从音频生成中删除中括号包住的内容
-    ignore_parentheses: True # 从音频生成中删除括号包住的内容
-    ignore_asterisks: True # 从音频生成中删除星号包住的内容(单双星号)
-    ignore_angle_brackets: True # 从音频生成中删除尖括号包住的内容
-
-    translator_config:
-      # 比如...你说话并阅读英语字幕，而 TTS 说日语之类的
-      translate_audio: False # 警告：请确保翻译引擎配置成功再开启此选项，否则会翻译失败
-      translate_provider: 'deeplx' # 翻译提供商, 目前支持 deeplx 或 tencent
-
-
-      #  腾讯文本翻译  每月500万字符  记得关闭后付费,需要手动前往 机器翻译控制台 > 系统设置 关闭
-      #   https://cloud.tencent.com/document/product/551/35017
-      #   https://console.cloud.tencent.com/cam/capi
-      tencent:
-        secret_id: ''
-        secret_key: ''
-        region: 'ap-guangzhou'
-        source_lang: 'zh'
-        target_lang: 'ja'
 
 # 直播平台集成
 live_config:

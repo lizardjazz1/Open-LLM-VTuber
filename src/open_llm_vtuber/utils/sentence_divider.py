@@ -320,6 +320,8 @@ class SentenceDivider:
         self._buffer = ""
         # Replace active_tags dict with a stack to handle nesting
         self._tag_stack = []
+        # Track last emitted partial buffer to avoid duplicate 'partial-text' messages
+        self._last_partial_emitted: str = ""
 
     def _get_current_tags(self) -> List[TagInfo]:
         """
@@ -580,6 +582,14 @@ class SentenceDivider:
                         sentence.text
                     )  # Track for complete response
                     yield sentence
+                # After attempting to extract complete sentences, if there is an
+                # incomplete fragment remaining in the buffer, emit a lightweight
+                # 'partial-text' hint for realtime UI updates.
+                partial_now = self._buffer.strip()
+                if partial_now and partial_now != self._last_partial_emitted:
+                    # Only emit if changed to avoid spamming duplicates
+                    yield {"type": "partial-text", "text": partial_now}
+                    self._last_partial_emitted = partial_now
             else:
                 logger.warning(
                     f"SentenceDivider received unexpected type: {type(item)}"
@@ -589,6 +599,8 @@ class SentenceDivider:
         async for sentence in self._flush_buffer():
             self._full_response.append(sentence.text)
             yield sentence
+        # Clear last partial state after stream ends
+        self._last_partial_emitted = ""
 
     @property
     def complete_response(self) -> str:
@@ -606,3 +618,4 @@ class SentenceDivider:
         self._is_first_sentence = True
         self._buffer = ""
         self._tag_stack = []
+        self._last_partial_emitted = ""

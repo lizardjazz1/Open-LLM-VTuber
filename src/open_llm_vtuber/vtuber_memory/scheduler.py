@@ -14,11 +14,20 @@ class ConsolidationScheduler:
         await scheduler.start()
         ...
         await scheduler.stop()
+
+    Optionally a secondary callback can run after consolidation (e.g., TTL prune).
     """
 
-    def __init__(self, interval_sec: int, trigger: Callable[[str], "asyncio.Future"]):
+    def __init__(
+        self,
+        interval_sec: int,
+        trigger: Callable[[str], "asyncio.Future"],
+        *,
+        post_hook: Optional[Callable[[], "asyncio.Future"]] = None,
+    ):
         self.interval_sec = max(60, int(interval_sec))
         self._trigger = trigger
+        self._post_hook = post_hook
         self._task: Optional[asyncio.Task] = None
         self._stopping = False
 
@@ -33,6 +42,12 @@ class ConsolidationScheduler:
                     await self._trigger("scheduled")
                 except Exception as e:
                     logger.debug(f"scheduled consolidation skipped: {e}")
+                # Run optional post maintenance task
+                if self._post_hook and not self._stopping:
+                    try:
+                        await self._post_hook()
+                    except Exception as e:
+                        logger.debug(f"post_hook skipped: {e}")
         except asyncio.CancelledError:
             pass
         finally:

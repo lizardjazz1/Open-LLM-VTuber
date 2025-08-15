@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Literal, List, TypedDict, Optional
 from loguru import logger
+from .conversations.conversation_utils import sanitize_for_display
 
 
 class HistoryMessage(TypedDict):
@@ -128,10 +129,13 @@ def store_message(
             pass
 
     now_str = datetime.now().isoformat(timespec="seconds")
+    # Sanitize AI content before persisting to avoid feeding tags/commands back into prompts
+    safe_content = sanitize_for_display(content) if role == "ai" else content
+
     new_item = {
         "role": role,
         "timestamp": now_str,
-        "content": content,
+        "content": safe_content,
     }
 
     # Add optional display information if provided

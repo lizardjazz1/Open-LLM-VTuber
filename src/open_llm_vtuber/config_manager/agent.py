@@ -29,6 +29,45 @@ class BasicMemoryAgentConfig(I18nMixin, BaseModel):
         "mistral_llm",
     ] = Field(..., alias="llm_provider")
 
+    # NEW: allow separate LLMs for chat and memory without breaking existing configs
+    chat_llm_provider: Optional[
+        Literal[
+            "stateless_llm_with_template",
+            "openai_compatible_llm",
+            "claude_llm",
+            "llama_cpp_llm",
+            "ollama_llm",
+            "lmstudio_llm",
+            "openai_llm",
+            "gemini_llm",
+            "zhipu_llm",
+            "deepseek_llm",
+            "groq_llm",
+            "mistral_llm",
+        ]
+    ] = Field(None, alias="chat_llm_provider")  # WHY: split chat vs memory LLM
+    chat_llm_key: Optional[str] = Field(
+        None, alias="chat_llm_key"
+    )  # key in llm_configs
+
+    memory_llm_provider: Optional[
+        Literal[
+            "stateless_llm_with_template",
+            "openai_compatible_llm",
+            "claude_llm",
+            "llama_cpp_llm",
+            "ollama_llm",
+            "lmstudio_llm",
+            "openai_llm",
+            "gemini_llm",
+            "zhipu_llm",
+            "deepseek_llm",
+            "groq_llm",
+            "mistral_llm",
+        ]
+    ] = Field(None, alias="memory_llm_provider")
+    memory_llm_key: Optional[str] = Field(None, alias="memory_llm_key")
+
     faster_first_response: Optional[bool] = Field(True, alias="faster_first_response")
     segment_method: Literal["regex", "pysbd"] = Field("pysbd", alias="segment_method")
     use_mcpp: Optional[bool] = Field(False, alias="use_mcpp")
@@ -41,8 +80,30 @@ class BasicMemoryAgentConfig(I18nMixin, BaseModel):
     sentiment_timeout_s: int = Field(12, alias="sentiment_timeout_s")
     consolidate_recent_messages: int = Field(120, alias="consolidate_recent_messages")
 
+    # New: personality and behavior settings for VTuber characters
+    stream_mode: bool = Field(True, alias="stream_mode")
+    spicy_mode: bool = Field(False, alias="spicy_mode")
+    personality_consistency: float = Field(
+        0.8, alias="personality_consistency", ge=0.0, le=1.0
+    )
+    creativity_level: float = Field(0.7, alias="creativity_level", ge=0.0, le=1.0)
+    emotional_adaptability: float = Field(
+        0.9, alias="emotional_adaptability", ge=0.0, le=1.0
+    )
+
+    # NEW: Disable reasoning-style outputs in models that support inner thoughts
+    no_think_mode: bool = Field(False, alias="no_think_mode")
+
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "llm_provider": Description(i18n_key="llm_provider_to_use_for_this_agent"),
+        "chat_llm_provider": Description(
+            i18n_key="chat_llm_provider_for_realtime_dialogue"
+        ),
+        "chat_llm_key": Description(i18n_key="llm_config_key_used_for_chat"),
+        "memory_llm_provider": Description(
+            i18n_key="memory_llm_provider_for_background_analysis"
+        ),
+        "memory_llm_key": Description(i18n_key="llm_config_key_used_for_memory_tasks"),
         "faster_first_response": Description(
             i18n_key="whether_to_respond_as_soon_as_encountering_a_comma_in_the_first_sentence_to_reduce_latency_default_true"
         ),
@@ -69,6 +130,21 @@ class BasicMemoryAgentConfig(I18nMixin, BaseModel):
         ),
         "consolidate_recent_messages": Description(
             i18n_key="memory_agent_consolidation_recent_messages_window"
+        ),
+        "stream_mode": Description(
+            i18n_key="enable_stream_mode_for_vtuber_behavior_default_true"
+        ),
+        "spicy_mode": Description(
+            i18n_key="enable_spicy_mode_for_more_sarcastic_responses_default_false"
+        ),
+        "personality_consistency": Description(
+            i18n_key="personality_consistency_level_0_0_to_1_0_default_0_8"
+        ),
+        "creativity_level": Description(
+            i18n_key="creativity_level_for_response_generation_0_0_to_1_0_default_0_7"
+        ),
+        "emotional_adaptability": Description(
+            i18n_key="emotional_adaptability_level_0_0_to_1_0_default_0_9"
         ),
     }
 

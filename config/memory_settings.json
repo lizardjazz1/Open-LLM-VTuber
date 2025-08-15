@@ -1,0 +1,1 @@
+﻿{\n   chroma_persist_dir: cache\\chroma,\n  chroma_session_collection: vtuber_session,\n  chroma_ltm_collection: vtuber_ltm,\n  session_ttl_sec: 604800,\n  default_stm_window_minutes: 20\n}

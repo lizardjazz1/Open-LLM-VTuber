@@ -153,3 +153,29 @@ Thanks our contributors and maintainers for making this project possible.
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=t41372/open-llm-vtuber&type=Date)](https://star-history.com/#t41372/open-llm-vtuber&Date) 
+
+## MemGPT installation (no Docker)
+
+To enable MemGPT-backed memory with ChromaDB:
+
+```bash
+# from project root
+cd backend || true
+# clone MemGPT into local folder and install editable
+git clone https://github.com/cpacker/MemGPT.git memgpt
+cd memgpt
+pip install -e .
+```
+
+Then configure memory settings in `conf.yaml` (system and character sections) if needed. 
+
+### Deep consolidation and TTL
+
+- Deep consolidation: set in `conf.yaml` → `system_config.deep_consolidation_every_n_streams: 5` (default)
+- Session TTL cleanup: runs automatically after each consolidation cycle; default TTL is 7 days (`SESSION_TTL_SEC`).
+- Collections:
+  - `vtuber_session` for temporary session memory (auto-pruned)
+  - `vtuber_ltm` for long-term memory (consolidated)
+
+Unified memory config module lives at `src/open_llm_vtuber/vtuber_memory/config.py` (aliased in code as backend/app). 
+You can override defaults via `config/memory_settings.json`. 

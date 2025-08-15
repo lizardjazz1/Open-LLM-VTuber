@@ -5,7 +5,8 @@ This document describes how to send client-side logs to the backend for centrali
 ## POST /logs
 
 - Endpoint: `/logs`
-- Header: `X-Log-Token: YOUR_TOKEN` (configure `system_config.logging_token` in `conf.yaml`)
+- Enablement: set `system_config.client_log_ingest_enabled: true` in `conf.yaml`
+- Token: not used; the `X-Log-Token` header is ignored (field removed)
 - Rate limiting: 10 requests/second per IP
 - Body: arbitrary JSON payload, recommended fields:
   - `component`: e.g., `frontend`, `web`, `twitch_bot`
@@ -19,7 +20,6 @@ This document describes how to send client-side logs to the backend for centrali
 ```bash
 curl -X POST http://localhost:8000/logs \
   -H "Content-Type: application/json" \
-  -H "X-Log-Token: YOUR_TOKEN" \
   -d '{
     "component": "frontend",
     "level": "error",

@@ -238,10 +238,48 @@ async def handle_group_member_turn(
     # Update current speaker before processing
     state.current_speaker_uid = current_member_uid
 
-    await broadcast_thinking_state(broadcast_func, group_members)
+    # Logging wrappers
+    async def ws_send_logged(msg: str):
+        try:
+            data = json.loads(msg)
+            p_type = data.get("type", "unknown")
+            disp = data.get("display_text")
+            text_val = (
+                disp.get("text") if isinstance(disp, dict) else None
+            ) or data.get("text")
+            has_audio = bool(data.get("audio"))
+            seq = data.get("seq") or data.get("sequence")
+            logger.info(
+                f"WS[group][logged] send type={p_type} has_audio={'yes' if has_audio else 'no'} text_len={len(text_val) if isinstance(text_val, str) else 0} seq={seq}"
+            )
+        except Exception:
+            logger.info(
+                f"WS[group][logged] send raw_len={len(msg) if isinstance(msg, str) else 'n/a'}"
+            )
+        await client_connections[current_member_uid].send_text(msg)
+
+    async def broadcast_logged(
+        members: List[str], payload: Dict[str, Any], exclude_uid: Optional[str] = None
+    ):
+        try:
+            p_type = payload.get("type", "unknown")
+            disp = payload.get("display_text")
+            text_val = (
+                disp.get("text") if isinstance(disp, dict) else None
+            ) or payload.get("text")
+            has_audio = bool(payload.get("audio"))
+            seq = payload.get("seq") or payload.get("sequence")
+            logger.info(
+                f"BROADCAST[logged] type={p_type} has_audio={'yes' if has_audio else 'no'} text_len={len(text_val) if isinstance(text_val, str) else 0} seq={seq} members={len(members)} exclude={exclude_uid}"
+            )
+        except Exception:
+            logger.info("BROADCAST[logged] payload (unparsed)")
+        await broadcast_func(members, payload, exclude_uid)
+
+    await broadcast_thinking_state(broadcast_logged, group_members)
 
     context = client_contexts[current_member_uid]
-    current_ws_send = client_connections[current_member_uid].send_text
+    current_ws_send = ws_send_logged
 
     new_messages = state.conversation_history[state.memory_index[current_member_uid] :]
     new_context = "\n".join(new_messages) if new_messages else ""
@@ -263,7 +301,7 @@ async def handle_group_member_turn(
         batch_input=batch_input,
         current_ws_send=current_ws_send,
         tts_manager=tts_manager,
-        broadcast_func=broadcast_func,
+        broadcast_func=broadcast_logged,
         group_members=group_members,
     )
 
@@ -272,7 +310,7 @@ async def handle_group_member_turn(
         await current_ws_send(json.dumps({"type": "backend-synth-complete"}))
 
         broadcast_ctx = BroadcastContext(
-            broadcast_func=broadcast_func,
+            broadcast_func=broadcast_logged,
             group_members=group_members,
             current_client_uid=current_member_uid,
         )

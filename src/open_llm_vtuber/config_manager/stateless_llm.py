@@ -119,6 +119,10 @@ class LmStudioConfig(OpenAICompatibleConfig):
     interrupt_method: Literal["system", "user"] = Field(
         "system", alias="interrupt_method"
     )
+    # New: additional generation settings for better VTuber responses
+    stop_sequences: list[str] | None = Field(None, alias="stop_sequences")
+    repetition_penalty: float = Field(1.1, alias="repetition_penalty", ge=1.0, le=2.0)
+    length_penalty: float = Field(0.8, alias="length_penalty", ge=0.0, le=2.0)
 
     _LMSTUDIO_DESCRIPTIONS: ClassVar[dict[str, Description]] = {
         "llm_api_key": Description(i18n_key="config.llm.lmstudio.llm_api_key"),
@@ -126,6 +130,11 @@ class LmStudioConfig(OpenAICompatibleConfig):
         "use_harmony": Description(i18n_key="config.llm.lmstudio.use_harmony"),
         "max_tokens": Description(i18n_key="config.llm.lmstudio.max_tokens"),
         "stream": Description(i18n_key="config.llm.lmstudio.stream"),
+        "stop_sequences": Description(i18n_key="config.llm.lmstudio.stop_sequences"),
+        "repetition_penalty": Description(
+            i18n_key="config.llm.lmstudio.repetition_penalty"
+        ),
+        "length_penalty": Description(i18n_key="config.llm.lmstudio.length_penalty"),
     }
 
     DESCRIPTIONS: ClassVar[dict[str, Description]] = {

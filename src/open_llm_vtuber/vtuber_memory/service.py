@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from ..memory.memory_service import MemoryService
+# Legacy MemoryService removed; vtuber_memory is the primary interface now
 from ..memory.memory_schema import MemoryItemTyped, MemoryKind
 from ..config_manager.system import SystemConfig
 from ..config_manager.character import CharacterConfig
@@ -12,10 +12,9 @@ from .providers.letta_provider import LettaProvider
 
 
 class VtuberMemoryService(VtuberMemoryInterface):
-    """Default vtuber memory service.
+    """Vtuber memory service orchestrating backend providers.
 
-    Wraps current MemoryService (Chroma-based) by default and can switch to
-    other providers using CharacterConfig.vtuber_memory.provider.
+    Default provider is MemGPT-like over Chroma unless explicitly set to 'letta'.
     """
 
     def __init__(
@@ -30,23 +29,32 @@ class VtuberMemoryService(VtuberMemoryInterface):
                 getattr(
                     getattr(character_config, "vtuber_memory", None), "provider", None
                 )
-                or "default"
+                or "memgpt"
             )
             .strip()
             .lower()
         )
         self._backend: VtuberMemoryInterface
-        if provider_name == "memgpt":
-            # Read paths and embeddings settings from system_config
+        if not enabled:
+            # Disabled stub
+            self._backend = LettaProvider()  # use stub with enabled=False
+            self._backend._enabled = False  # type: ignore[attr-defined]
+            return
+        if provider_name == "letta":
+            self._backend = LettaProvider()
+        else:
+            # MemGPT-like (Chroma) as default
+            from .config import CHROMA_PERSIST_DIR
+
             chroma_path = (
-                getattr(system_config, "chroma_persist_dir", "cache/chroma")
+                getattr(system_config, "chroma_persist_dir", CHROMA_PERSIST_DIR)
                 if system_config
-                else "cache/chroma"
+                else CHROMA_PERSIST_DIR
             )
             collection = (
-                getattr(system_config, "chroma_collection", "vtuber_memory")
+                getattr(system_config, "chroma_collection", "vtuber_ltm")
                 if system_config
-                else "vtuber_memory"
+                else "vtuber_ltm"
             )
             embeddings_model = (
                 getattr(
@@ -63,10 +71,6 @@ class VtuberMemoryService(VtuberMemoryInterface):
                 embeddings_model=embeddings_model,
                 system_config=system_config,
             )
-        elif provider_name == "letta":
-            self._backend = LettaProvider()
-        else:
-            self._backend = MemoryService(enabled=enabled)
 
     @property
     def enabled(self) -> bool:
@@ -74,10 +78,9 @@ class VtuberMemoryService(VtuberMemoryInterface):
 
     def add_memory(self, item: Dict[str, Any]) -> int:
         try:
-            if hasattr(self._backend, "add_memory") and not isinstance(
-                self._backend, MemoryService
-            ):
-                return self._backend.add_memory(item)
+            if hasattr(self._backend, "add_memory"):
+                return self._backend.add_memory(item)  # type: ignore[no-any-return]
+            # Fallback type normalization (should not happen)
             typed = MemoryItemTyped(
                 text=str(item.get("text", "")),
                 kind=MemoryKind(str(item.get("kind", "user"))),
@@ -93,22 +96,14 @@ class VtuberMemoryService(VtuberMemoryInterface):
                 if item.get("context_window")
                 else None,
             )
-            return (
-                self._backend.add_memory(typed)
-                if isinstance(self._backend, MemoryService)
-                else 0
-            )
+            return self._backend.add_memory(typed)  # type: ignore[arg-type]
         except Exception:
             return 0
 
     def add_facts(
         self, facts: List[str], conf_uid: str, history_uid: str, kind: str = "chat"
     ) -> int:
-        return (
-            self._backend.add_facts(facts, conf_uid, history_uid, kind)
-            if isinstance(self._backend, MemoryService)
-            else self._backend.add_facts(facts, conf_uid, history_uid, kind)
-        )
+        return self._backend.add_facts(facts, conf_uid, history_uid, kind)
 
     def add_facts_with_meta(
         self,
@@ -188,7 +183,96 @@ class VtuberMemoryService(VtuberMemoryInterface):
         max_age_ts: Optional[int] = None,
         max_importance: Optional[float] = None,
     ) -> int:
-        return self._backend.prune(conf_uid, max_age_ts, max_importance)
+        # If backend supports it, use it
+        try:
+            out = self._backend.prune(conf_uid, max_age_ts, max_importance)
+            if out:
+                return out
+        except Exception:
+            pass
+        # Fallback: list and delete
+        try:
+            items = self._backend.list(conf_uid=conf_uid, limit=5000)
+            to_delete: List[str] = []
+            for it in items:
+                meta = it.get("metadata") or {}
+                ts = meta.get("timestamp")
+                imp = meta.get("importance", 0.0)
+                if (
+                    max_age_ts is not None
+                    and isinstance(ts, (int, float))
+                    and ts <= int(max_age_ts)
+                ) or (
+                    max_importance is not None and float(imp) < float(max_importance)
+                ):
+                    if it.get("id"):
+                        to_delete.append(str(it["id"]))
+            if to_delete:
+                return self._backend.delete(to_delete)
+        except Exception:
+            return 0
+        return 0
 
     def delete(self, ids: List[str]) -> int:
         return self._backend.delete(ids)
+
+    # --- helpers ---
+    def prune_session_by_ttl(self, ttl_sec: int) -> int:
+        """Prune session entries older than now - ttl_sec based on metadata.timestamp and is_session flag.
+
+        Excludes any entries that belong to active history sessions if needed.
+        """
+        return self.prune_session_by_ttl_ex(ttl_sec=ttl_sec, exclude_history_uids=None)
+
+    def prune_session_by_ttl_ex(
+        self, *, ttl_sec: int, exclude_history_uids: Optional[List[str]]
+    ) -> int:
+        import time
+
+        now = int(time.time())
+        cutoff = now - int(max(60, ttl_sec))
+        items = self._backend.list(limit=5000)
+        ids: List[str] = []
+        exclude_set = set(exclude_history_uids or [])
+        for it in items:
+            meta = it.get("metadata") or {}
+            if exclude_set and str(meta.get("history_uid")) in exclude_set:
+                continue
+            if (
+                bool(meta.get("is_session"))
+                and int(meta.get("timestamp") or 0) <= cutoff
+            ):
+                if it.get("id"):
+                    ids.append(str(it["id"]))
+        if ids:
+            return self._backend.delete(ids)
+        return 0
+
+    def prune_ltm(
+        self,
+        *,
+        conf_uid: Optional[str],
+        max_age_ts: Optional[int],
+        max_importance: Optional[float],
+    ) -> int:
+        """Prune only LTM entries (is_session != True) with optional age/importance constraints."""
+        items = self._backend.list(conf_uid=conf_uid, limit=10000)
+        ids: List[str] = []
+        for it in items:
+            meta = it.get("metadata") or {}
+            if bool(meta.get("is_session")):
+                continue
+            ts = meta.get("timestamp")
+            imp = meta.get("importance", 0.0)
+            too_old = (
+                max_age_ts is not None
+                and isinstance(ts, (int, float))
+                and ts <= int(max_age_ts)
+            )
+            low_imp = max_importance is not None and float(imp) < float(max_importance)
+            if too_old or low_imp:
+                if it.get("id"):
+                    ids.append(str(it["id"]))
+        if ids:
+            return self._backend.delete(ids)
+        return 0

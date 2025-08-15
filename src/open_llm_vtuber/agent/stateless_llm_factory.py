@@ -9,6 +9,7 @@ from .stateless_llm.stateless_llm_with_template import (
 from .stateless_llm.openai_compatible_llm import AsyncLLM as OpenAICompatibleLLM
 from .stateless_llm.ollama_llm import OllamaLLM
 from .stateless_llm.claude_llm import AsyncLLM as ClaudeLLM
+from .stateless_llm.lmstudio_llm import LMStudioLLM
 
 
 class LLMFactory:
@@ -30,7 +31,6 @@ class LLMFactory:
             or llm_provider == "deepseek_llm"
             or llm_provider == "groq_llm"
             or llm_provider == "mistral_llm"
-            or llm_provider == "lmstudio_llm"
         ):
             return OpenAICompatibleLLM(
                 model=kwargs.get("model"),
@@ -46,6 +46,7 @@ class LLMFactory:
                 presence_penalty=kwargs.get("presence_penalty", 0.0),
                 stop=kwargs.get("stop"),
                 seed=kwargs.get("seed"),
+                fallback_model=kwargs.get("fallback_model"),
             )
         if llm_provider == "stateless_llm_with_template":
             return StatelessLLMWithTemplate(
@@ -81,6 +82,27 @@ class LLMFactory:
                 base_url=kwargs.get("base_url"),
                 model=kwargs.get("model"),
                 llm_api_key=kwargs.get("llm_api_key"),
+            )
+        elif llm_provider == "lmstudio_llm":
+            return LMStudioLLM(
+                model=kwargs.get("model"),
+                base_url=kwargs.get("base_url"),
+                llm_api_key=kwargs.get("llm_api_key"),
+                organization_id=kwargs.get("organization_id"),
+                project_id=kwargs.get("project_id"),
+                temperature=kwargs.get("temperature"),
+                use_harmony=kwargs.get("use_harmony", False),
+                max_tokens=kwargs.get("max_tokens", 150),
+                top_p=kwargs.get("top_p", 1.0),
+                frequency_penalty=kwargs.get("frequency_penalty", 0.0),
+                presence_penalty=kwargs.get("presence_penalty", 0.0),
+                stop=kwargs.get("stop"),
+                seed=kwargs.get("seed"),
+                # VTuber-specific parameters
+                stop_sequences=kwargs.get("stop_sequences"),
+                repetition_penalty=kwargs.get("repetition_penalty", 1.1),
+                length_penalty=kwargs.get("length_penalty", 0.8),
+                stream=kwargs.get("stream", True),  # Add stream parameter
             )
         else:
             raise ValueError(f"Unsupported LLM provider: {llm_provider}")

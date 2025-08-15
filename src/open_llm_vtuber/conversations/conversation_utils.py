@@ -5,6 +5,9 @@ import numpy as np
 import json
 from loguru import logger
 import time
+import re as _re_json_guard
+import difflib
+from collections import deque
 
 from ..message_handler import message_handler
 from .types import WebSocketSend, BroadcastContext
@@ -27,7 +30,7 @@ def clean_voice_commands_from_text(text: str) -> str:
     clean_text = re.sub(voice_pattern, "", text)
 
     # Remove emotion commands in square brackets
-    emotion_pattern = r"\[(?:neutral|joy|smile|laugh|anger|disgust|fear|sadness|surprise|confused|thinking|excited|shy|wink)\]"
+    emotion_pattern = r"\[(?:neutral|joy|smile|laugh|anger|disgust|fear|sadness|surprise|confused|thinking|excited|shy|wink|whisper|shout|indignation)\]"
     clean_text = re.sub(emotion_pattern, "", clean_text)
 
     # Remove extra spaces
@@ -100,6 +103,58 @@ async def process_agent_output(
     return full_response
 
 
+def _looks_like_memory_json_for_display(text: str) -> bool:
+    """Heuristic to catch raw memory/JSON blocks before UI display.
+
+    Args:
+        text: Candidate text.
+    Returns:
+        bool: True if content resembles internal JSON/memory.
+    """
+    if not text:
+        return False
+    if _re_json_guard.search(
+        r"\{\s*\"(facts_about_user|past_events|self_beliefs|objectives|emotions|key_facts)\"",
+        text,
+    ):
+        return True
+    t = text.lstrip()
+    if (t.startswith("{") or t.startswith("[")) and len(t) > 40:
+        return True
+    # Hide service tags leakage like [Memory], [Relations], {voice}
+    if "[Memory]" in text or "[Relations]" in text or "{voice" in text:
+        return True
+    return False
+
+
+def sanitize_for_display(text: str) -> str:
+    """Remove voice/emotion commands and suppress JSON/service tags before UI.
+
+    Args:
+        text: Raw text possibly containing commands/JSON.
+    Returns:
+        Sanitized text safe for display and TTS mirroring the plan.
+    """
+    cleaned = clean_voice_commands_from_text(text)
+    try:
+        import re as _re
+
+        # Remove known emotion tags in brackets, e.g. [joy], [thinking]
+        cleaned = _re.sub(
+            r"\[(neutral|joy|smile|laugh|anger|disgust|fear|sadness|surprise|confused|thinking|excited|shy|wink|indignation|whisper|shout)\]",
+            " ",
+            cleaned,
+            flags=_re.IGNORECASE,
+        )
+        cleaned = _re.sub(r"\s+", " ", cleaned).strip()
+    except Exception:
+        cleaned = cleaned.strip()
+    # Temporarily disable JSON filtering to allow normal LLM responses
+    # if _looks_like_memory_json_for_display(cleaned):
+    #     return "[summary hidden]"
+    return cleaned
+
+
 async def handle_sentence_output(
     output: SentenceOutput,
     live2d_model: Live2dModel,
@@ -111,8 +166,51 @@ async def handle_sentence_output(
 ) -> str:
     """Handle sentence output type with optional translation support"""
     full_response = ""
+    # Track recent normalized segments within this turn to suppress duplicates pre-display/pre-TTS
+    recent_norm_texts: deque[str] = deque(maxlen=8)
+
+    def _normalize_for_repeat_check(text: str) -> str:
+        try:
+            # Remove voice commands and emotion tags using existing cleaner then strip punctuation/whitespace
+            cleaned = clean_voice_commands_from_text(text)
+            cleaned = (
+                _re_json_guard.sub(r"", cleaned)
+                if hasattr(_re_json_guard, "sub")
+                else cleaned
+            )
+            cleaned = (
+                _re_json_guard.sub(r"\s+", " ", cleaned)
+                if hasattr(_re_json_guard, "sub")
+                else cleaned
+            )
+            cleaned = re.sub(r"[\s.,!?，。！？'»«“”‘’\-]+", " ", cleaned)
+            return cleaned.strip().lower()
+        except Exception:
+            return str(text or "").strip().lower()
+
+    def _is_near_duplicate(norm_text: str) -> bool:
+        for prev in recent_norm_texts:
+            try:
+                if not prev or not norm_text:
+                    continue
+                if norm_text == prev:
+                    return True
+                # Very strict similarity to avoid suppressing distinct content
+                if difflib.SequenceMatcher(a=prev, b=norm_text).ratio() > 0.99:
+                    return True
+            except Exception:
+                continue
+        return False
+
     async for display_text, tts_text, actions in output:
         logger.debug(f"🏃 Processing output: '''{tts_text}'''...")
+        # Pre-filter: suppress duplicates before UI/TTS
+        norm_disp = _normalize_for_repeat_check(display_text.text)
+        if _is_near_duplicate(norm_disp):
+            logger.info(
+                f"🛑 Suppressing near-duplicate segment (pre-display/pre-TTS), len={len(norm_disp)}"
+            )
+            continue
 
         # Add detailed logging for debugging voice commands
         if "{rate:" in tts_text or "{volume:" in tts_text or "{pitch:" in tts_text:
@@ -144,7 +242,7 @@ async def handle_sentence_output(
             logger.debug(f"🔍 No voice or emotion commands in tts_text: {tts_text}")
 
         if translate_engine:
-            if len(re.sub(r'[\s.,!?，。！？\'"』」）】\s]+', "", tts_text)):
+            if len(re.sub(r"[\s.,!?，。！？'\"』」）】\s]+", "", tts_text)):
                 tts_text = translate_engine.translate(tts_text)
             logger.info(f"🏃 Text after translation: '''{tts_text}'''...")
         else:
@@ -223,18 +321,26 @@ async def handle_sentence_output(
         # The TTS engine will parse and apply voice commands automatically
 
         full_response += display_text.text
+        # Track segment as accepted for this turn
+        recent_norm_texts.append(norm_disp)
 
-        # Clean display_text from voice commands for frontend
-        display_text.text = clean_voice_commands_from_text(display_text.text)
+        # Clean display_text from voice commands and guard JSON for frontend
+        display_text.text = sanitize_for_display(display_text.text)
 
         await tts_manager.speak(
-            tts_text=tts_text,  # Отправляем текст с командами голоса в TTS
+            tts_text=clean_tts_text,  # Отправляем текст без [] эмоций, но со { } командами
             display_text=display_text,
             actions=actions,
             live2d_model=live2d_model,
             tts_engine=tts_engine,
             websocket_send=websocket_send,
         )
+    try:
+        logger.info("💬 Final response generated:")
+        # Log on next lines to match your historical format
+        logger.info(full_response)
+    except Exception:
+        pass
     return full_response
 
 
@@ -247,8 +353,8 @@ async def handle_audio_output(
     async for audio_path, display_text, transcript, actions in output:
         full_response += transcript
 
-        # Clean display_text from voice commands for frontend
-        display_text.text = clean_voice_commands_from_text(display_text.text)
+        # Clean display_text from voice commands for frontend and guard JSON
+        display_text.text = sanitize_for_display(display_text.text)
 
         audio_payload = prepare_audio_payload(
             audio_path=audio_path,

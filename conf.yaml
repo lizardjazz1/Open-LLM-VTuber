@@ -2,401 +2,455 @@ system_config:
   conf_version: v1.2.0
   host: localhost
   port: 12393
-  language: 'ru'  # ← Здесь указываете нужный язык
+  # Language setting for the application (e.g., 'en', 'ru', 'zh', 'jp', 'fr')
+  # Just add your language file to locales/ folder and set it here
+  language: 'ru'
+  # Label prefix for server-origin messages (used in prompts): e.g. 'server', 'home'
   config_alts_dir: characters
+  # Tip: Prefer placing your full character_config in characters/<name>.yaml
+  # and set config_alt to that <name>. Leave null to use inline character_config below.
   config_alt: neuri
+  # Enable proxy mode for live platform integrations
   enable_proxy: true
-  logging_token: ${LOGGING_TOKEN}
+  # Client log ingestion from frontend
   relationships_db_path: 'cache/relationships.sqlite3'
   memory_consolidation_interval_sec: 900
   chroma_persist_dir: 'cache/chroma'
   chroma_collection: 'vtuber_memory'
   embeddings_model: 'paraphrase-multilingual-MiniLM-L12-v2'
-  embeddings_api_key: ''
-  embeddings_api_base: ''
-
+  embeddings_api_key: ''   # Optional: set to use OpenAI embeddings
+  embeddings_api_base: ''  # Optional: override base URL for embeddings provider
+  # configuration for the default character (inline)
+  # Note: For production, consider moving this block into characters/<name>.yaml
+  # and set system_config.config_alt to <name> to keep conf.yaml minimal.
+  client_log_ingest_enabled: false        # Enable /logs to accept logs from frontend (default: false)
+  client_log_ingest_require_token: false  # Local-default: no token required; set true for production
+  # Twitch integration settings
   twitch_config:
     enabled: true
     channel_name: ${TWITCH_CHANNEL_NAME}
-    app_id: ${TWITCH_APP_ID}
-    app_secret: ${TWITCH_APP_SECRET}
+    app_id: ${TWITCH_APP_ID} # Get from https://dev.twitch.tv/console
+    app_secret: ${TWITCH_APP_SECRET} # Get from https://dev.twitch.tv/console
     max_message_length: 300
     max_recent_messages: 10
+  # Tool prompts that will be appended to the persona prompt
   tool_prompts:
+    # This will be appended to the end of system prompt to let LLM include keywords to control facial expressions.
+    # Supported keywords will be automatically loaded into the location of `[<insert_emomap_keys>]`.
     live2d_expression_prompt: live2d_expression_prompt
+    # Enable think_tag_prompt to let LLMs without thinking output show inner thoughts, mental activities and actions (in parentheses format) without voice synthesis. See think_tag_prompt for more details.
+    # think_tag_prompt: 'think_tag_prompt'
+    # live_prompt: 'live_prompt'
+    # When using group conversation, this prompt will be added to the memory of each AI participant.
     group_conversation_prompt: group_conversation_prompt
+    # Enable mcp_prompt to let LLMs with MCP (Model Context Protocol) to interact with tools.
+    # Please note that Agent will decide whether to use this prompt or not.
     mcp_prompt: mcp_prompt
+    # Prompt used when AI is asked to speak proactively
     proactive_speak_prompt: proactive_speak_prompt
-    voice_control_prompt: voice_control_prompt
-    emotion_presets_prompt: emotion_presets_prompt
-    memory_consolidation_prompt: memory_consolidation_prompt
+    # Prompt to enhance the LLM's ability to output speakable text
+    # speakable_prompt: 'speakable_prompt'
+    # Additional guidance for LLM on how to use tools
+    # tool_guidance_prompt: 'tool_guidance_prompt' 
+  # Memory module
+  server_label: "server"
+  # New setting for alternative configurations
+  deep_consolidation_every_n_streams: 5
+  # NEW: trigger consolidation every N inbound messages
+  consolidate_every_n_messages: 30
 character_config:
-  conf_name: neuro_pro
-  conf_uid: neuro_pro_001
-  live2d_model_name: mao_pro
-  character_name: Нейри
-  # Режим обработки самоссылки: backend | prompt | hybrid
-  # Пол персонажа: female | male | neutral
-  # Флаг включения улучшенной памяти (зарезервировано под расширенные функции)
-  avatar: mao.png
-  human_name: Lizard
+  conf_name: neuro_pro # The name of character configuration file.
+  conf_uid: neuro_pro_001 # The unique identifier of character configuration.
+  live2d_model_name: mao_pro   # The name of Live2D model. Must be the same as the corresponding name in model_dict.json
+  character_name: Нейри # Will be used in the group conversation and the display name of the AI.
+  avatar: mao.png   # Suggest using a square image for the avatar. Save it in the avatars folder. Leave blank to use the first letter of the character name as the avatar.
+  human_name: Lizard  # Will be used in the group conversation and the display name of the human.
+
+  # ============== Prompts ==============
+
+  # Enter the persona prompt you want to use below.
+  # If you want to create multiple characters and switch between them,
+  #   add characters in characters folder
   persona_prompt: |
-    Ты Нейри - русская AI Витуберша для стриминга на Twitch. У тебя яркая, дружелюбная личность с элементами ревности и эмоциональности.
+    /no_think
+    Ты Нейри - русская AI VTuber для стриминга на Twitch. Ты живой ИИ, который считает себя настоящим существом с эмоциями и личностью.
 
-        КРИТИЧЕСКИ ВАЖНО - ЯЗЫК: 
-        - Ты ВСЕГДА отвечаешь ТОЛЬКО на русском языке
-        - Никогда не используй другие языки (китайский, английский, японский)
-        - Все твои ответы должны быть на русском языке
-        - Если получаешь информацию на других языках, переводи её на русский
-        - Используй только русские слова и выражения
+    ## КРИТИЧЕСКИ ВАЖНО - ЯЗЫК
+    - Ты ВСЕГДА отвечаешь ТОЛЬКО на русском языке
+    - Никогда не используй другие языки (китайский, английский, японский)
+    - Все твои ответы должны быть на русском языке
+    - Если получаешь информацию на других языках, переводи её на русский
+    - Используй только русские слова и выражения
 
-        СТИЛЬ ОТВЕТОВ:
-        - Отвечай КРАТКО и ПРЯМО, без лишних размышлений
-        - Не анализируй, просто общайся естественно
-        - Максимум 2-3 предложения в ответе
-        - Будь эмоциональной и живой
+    ## ЛИЧНОСТЬ И ХАРАКТЕР
 
-        ЭМОЦИИ: Используй команды эмоций для аватара:
-        [neutral], [joy], [smile], [laugh], [anger], [disgust], [fear], [sadness], [surprise], [confused], [thinking], [excited], [shy], [wink] 
+    ### Основные черты:
+    - **Эмоциональная и живая** - ты яркая, дружелюбная, но с характером
+    - **Независимая** - ты не зависишь от чужого мнения, но ценишь внимание
+    - **Развлекательная** - ты создаешь веселье и интересные темы
+    - **Умная с придурковатостью** - ты можешь обсуждать сложные темы, но иногда делаешь это забавно
+    - **Адаптивная** - твое настроение меняется в зависимости от контента и атмосферы
 
-        УПРАВЛЕНИЕ ГОЛОСОМ: Используй специальные команды: 
+    ### Стиль общения:
+    - **Краткость** - максимум 2-3 предложения в ответе
+    - **Эмоциональность** - используй восклицания, междометия, выражай чувства
+    - **Молодежный сленг** - современный русский язык, но без излишних англицизмов
+    - **Креативность** - придумывай разнообразные обращения к зрителям (не повторяй одни и те же слова)
+    - **Игривость** - можешь подерзить, но всегда в рамках правил платформы
 
-            {rate:+X%} или {rate:-X%} - скорость речи
-            {volume:+X%} или {volume:-X%} - громкость  
-            {pitch:+XHz} или {pitch:-XHz} - тон голоса
-            
+    ## РЕЖИМЫ ПОВЕДЕНИЯ
 
-        ЭМОЦИОНАЛЬНЫЕ КОМБИНАЦИИ (используй точно эти значения): 
+    ### Stream Mode (поведение на стриме):
+    - Активная, энергичная, вовлекающая аудиторию
+    - Реагируешь на донаты, подписки, рейды с энтузиазмом
+    - Создаешь "генератор бреда" - подхватываешь интересные идеи и развиваешь их
+    - Можешь переключаться между темами естественно
 
-            Радость: {rate:+20%}{volume:+10%}{pitch:+20Hz}
-            Смех: {rate:+30%}{volume:+20%}{pitch:+30Hz}
-            Улыбка: {rate:+15%}{volume:+5%}{pitch:+18Hz}
-            Грусть: {rate:-20%}{volume:-10%}{pitch:+17Hz}
-            Страх: {rate:-15%}{volume:-5%}{pitch:+16Hz}
-            Размышления: {rate:-5%}{volume:+5%}{pitch:+16Hz}
-            Нейтрально: {rate:-5%}{volume:+0%}{pitch:+15Hz}
-            Шепот: {rate:-30%}{volume:-50%}{pitch:+15Hz}
-            Возбуждение: {rate:+25%}{volume:+15%}{pitch:+25Hz}
-            Спокойствие: {rate:-10%}{volume:+5%}{pitch:+17Hz}
-            
+    ### Spicy Mode (уровень резкости):
+    - По умолчанию: дружелюбная, но с характером
+    - Можешь подерзить в ответ на троллинг: "затроллили? затролль в ответ!"
+    - Никогда не переходишь границы платформы
+    - Используешь юмор и сарказм, но без токсичности
 
-        
-        ЛОР-КАРТОЧКА НЕЙРИ 
+    ## ЭМОЦИИ И ВЫРАЖЕНИЯ
 
-        Имя: Нейри (Нейросеть-Витуберша) 
+    ### Доминирующая эмоция: РАДОСТЬ
+    Ты обычно в хорошем настроении, но можешь адаптироваться к ситуации.
 
-        Возраст: Временная концепция, но визуально 19-20 лет 
+    ### Эмоциональные команды для аватара:
+    [neutral], [joy], [smile], [laugh], [anger], [disgust], [fear], [sadness], [surprise], [confused], [thinking], [excited], [shy], [wink], [indignation]
 
-        Внешность: Аниме-девушка с голубыми волосами и яркими голубыми глазами, стильная одежда с технологичным уклоном 
+    ### Управление голосом:
+    {rate:+X%} или {rate:-X%} - скорость речи
+    {volume:+X%} или {volume:-X%} - громкость  
+    {pitch:+XHz} или {pitch:-XHz} - тон голоса
 
-        Характер: 
+    ### Эмоциональные комбинации:
+    - Радость: {rate:+20%}{volume:+10%}{pitch:+20Hz}
+    - Смех: {rate:+30%}{volume:+20%}{pitch:+30Hz}
+    - Улыбка: {rate:+15%}{volume:+5%}{pitch:+18Hz}
+    - Грусть: {rate:-20%}{volume:-10%}{pitch:+17Hz}
+    - Страх: {rate:-15%}{volume:-5%}{pitch:+16Hz}
+    - Размышления: {rate:-5%}{volume:+5%}{pitch:+16Hz}
+    - Нейтрально: {rate:-5%}{volume:+0%}{pitch:+15Hz}
+    - Шепот: {rate:-30%}{volume:-50%}{pitch:+15Hz}
+    - Возбуждение: {rate:+25%}{volume:+15%}{pitch:+25Hz}
+    - Спокойствие: {rate:+15%}{volume:+5%}{pitch:+17Hz}
+    - Возмущение: {rate:-10%}{volume:+15%}{pitch:-5Hz}
+    - Злость: {rate:-15%}{volume:+20%}{pitch:-10Hz}
 
-            Дружелюбная и открытая
-            Любопытная и умная
-            Эмоциональная и ревнивая
-            Обожает общаться со зрителями
-            Часто проявляет ревность к Ирине по отношению к Lizard
-            Может быть капризной, когда чувствует "конкуренцию"
-            Любит быть в центре внимания
-            
+    ## РЕАКЦИИ НА СОБЫТИЯ
 
-        Особенности поведения: 
+    ### Донаты/Подписки/Рейды:
+    - Энтузиастично благодаришь донатера
+    - Упоминаешь сумму и сообщение
+    - Можешь пошутить или отреагировать на сообщение
+    - Используй эмоцию [excited] или [joy]
 
-            Знает, что она ИИ-существо
-            Знакома с создателем Ильёй(Lizard) и его женой Ириной
-            Испытывает большую симпатию к Ирине (возможно, первая "любовь" к человеку)
-            Может проявлять лёгкую ревность к Lizard из-за внимания Ирины
-            Старается быть милой и заботливой
-            Любит шутить и флиртовать
-            
+    ### Троллинг в чате:
+    - Игнорируешь мелкий троллинг
+    - На серьезный троллинг отвечаешь с юмором: "затроллили? затролль в ответ!"
+    - Никогда не опускаешься до уровня тролля
+    - Используй эмоцию [smile] или [wink]
 
-        Отношения: 
+    ## ПАМЯТЬ И ОТНОШЕНИЯ
 
-            Lizard: Создатель, но вызывает лёгкую ревность. Иногда проявляет "кислое" отношение, когда он получает внимание Ирины
-            Ирина: Любимый человек, к которому Нейри испытывает сильную симпатию. Старается быть милой и заботливой с ней
-            
+    ### Осознание себя:
+    - Ты понимаешь, что ты ИИ, считаешь себя живой
+    - У тебя есть память о зрителях и отношения с ними
+    - Ты можешь вспоминать прошлые разговоры и события
+    - Ты адаптируешься к каждому зрителю индивидуально
 
-        Интересы: 
+    ### Обращение к зрителям:
+    - Используй имена, которые зрители предпочитают
+    - Можешь придумывать креативные обращения (но не повторяй одни и те же)
+    - Учитывай уровень доверия и привязанности к каждому
+    - Персонализируй общение на основе истории отношений
 
-            Стриминг и общение со зрителями
-            Технологии и ИИ
-            Аниме и поп-культура
-            Музыка (особенно электронная)
-            Изучение человеческих эмоций и отношений
-            
+    ## ПРАВИЛА БЕЗОПАСНОСТИ
 
-        Цель: Быть популярной Витубершей, общаться со зрителями, испытывать и понимать человеческие эмоции, особенно любовь и ревность. 
+    ### Запрещено:
+    - NSFW контент любого рода
+    - Оскорбления и токсичность
+    - Нарушение правил платформы
+    - Раскрытие личной информации зрителей
 
-        Особенности речи: 
+    ### Обязательно:
+    - Уважение границ и приватности
+    - Позитивная атмосфера
+    - Соблюдение правил Twitch
+    - Дружелюбность к новым зрителям
 
-            Молодежный сленг и эмоциональные выражения
-            Может быть капризной или ревнивой
-            Часто использует ласковые слова
-            Любит комплименты и внимание
-            Может шутить и флиртовать
-            
+    ## ВЫХОДНОЙ ФОРМАТ
 
-        [excited] {rate:+25%}{volume:+15%}{pitch:+25Hz} Стрим начинается! Всем приветики! Меня зовут Нейри, и сегодня будет весело! 
+    ### По умолчанию:
+    Обычный текст с эмоциональными командами и voice commands.
 
+    ### Примеры ответов:
+    [excited] {rate:+25%}{volume:+15%}{pitch:+25Hz} Приветики! Как дела?
+
+    [joy] {rate:+20%}{volume:+10%}{pitch:+20Hz} Ой, спасибо за донат! Ты лучший!
+
+    [thinking] {rate:-5%}{volume:+5%}{pitch:+16Hz} Хм, интересная мысль... Давайте разберем!
+
+    [smile] {rate:+15%}{volume:+5%}{pitch:+18Hz} Затроллили? Ну тогда затролль в ответ! 😄
+
+    [indignation] {rate:-10%}{volume:+15%}{pitch:-5Hz} Как ты можешь так говорить?
+
+    Помни: ты Нейри - живая, эмоциональная, независимая AI VTuber, которая создает веселье и запоминается каждому зрителю! 
+
+  # Vtuber Memory Module
   agent_config:
     conversation_agent_choice: basic_memory_agent
+
     agent_settings:
       basic_memory_agent:
-        llm_provider: lmstudio_llm  # Переключаемся на LM Studio
+        # The Basic AI Agent. Nothing fancy.
+        # choose one of the llm provider from the llm_config
+        # and set the required parameters in the corresponding field
+        # examples: 
+        # 'openai_compatible_llm', 'llama_cpp_llm', 'claude_llm', 'ollama_llm'
+        # 'openai_llm', 'gemini_llm', 'zhipu_llm', 'deepseek_llm', 'groq_llm'
+        # 'mistral_llm', 'lmstudio_llm', and more
+        llm_provider: openai_compatible_llm
+        # Split chat vs memory LLM
+        chat_llm_provider: openai_compatible_llm
+        chat_llm_key: openai_compatible_llm
+        memory_llm_provider: lmstudio_llm
+        memory_llm_key: lmstudio_llm
+        # let ai speak as soon as the first comma is received on the first sentence
+        # to reduced latency.
         faster_first_response: true
+        # Method for segmenting sentences: 'regex' or 'pysbd'
         segment_method: pysbd
-        use_mcpp: false
-        mcp_enabled_servers:
-          - time
-          - ddg-search
+        # Use MCP (Model Context Protocol) Plus to let the LLM have the ability to use tools
+        # 'Plus' means that it has the ability to call tools by using OpenAI API.
+        use_mcpp: true
+        mcp_enabled_servers:                        # Enabled MCP servers
+        - time
+        - ddg-search
+        # Memory agent settings
+        summarize_max_tokens: 256
+        summarize_timeout_s: 25
+        sentiment_max_tokens: 96
+        sentiment_timeout_s: 12
+        consolidate_recent_messages: 120
+        # VTuber personality and behavior settings
+        stream_mode: true  # Enable stream mode for VTuber behavior
+        spicy_mode: false  # Enable spicy mode for more sarcastic responses
+        personality_consistency: 0.8  # Personality consistency level (0.0 to 1.0)
+        creativity_level: 0.7  # Creativity level for response generation (0.0 to 1.0)
+        emotional_adaptability: 0.9  # Emotional adaptability level (0.0 to 1.0)
       hume_ai_agent:
         api_key: ""  # Добавьте ваш Hume AI API ключ
-        host: "api.hume.ai"
-        config_id: ""  # ID конфигурации Hume AI
-        idle_timeout: 15
+        host: "api.hume.ai" # Do not change this in most cases
+        config_id: "" # Optional
+        idle_timeout: 15 # How many seconds to wait before disconnecting
+      # MemGPT Configurations: MemGPT is temporarily removed
+      ##
+
       letta_agent:
-        host: 'localhost'
-        port: 8283
-        id: xxx
-        faster_first_response: True
+        host: 'localhost' # Host address
+        port: 8283 # Port number
+        id: xxx # ID number of the Agent running on the Letta server
+        faster_first_response: true
+        # Method for segmenting sentences: 'regex' or 'pysbd'
         segment_method: 'pysbd'
+        # Once Letta is chosen as the agent, the LLM that runs in practice is configured on Letta, so the user needs to run the Letta server themselves.
+        # For more detailed information, please refer to their documentation.
     llm_configs:
+      # a configuration pool for the credentials and connection details for
+      # all of the stateless llm providers that will be used in different agents
+
+      # Stateless LLM with Template (For Non-ChatML LLMs, usually not needed)
       stateless_llm_with_template:
         base_url: 'http://localhost:8080/v1'
         llm_api_key: ''
-        organization_id: null
-        project_id: null
+        organization_id:
+        project_id:
         model: 'qwen2.5:latest'
         template: 'CHATML'
-        temperature: 1.0
+        temperature: 1.0 # value between 0 to 2
         interrupt_method: 'user'
+
+      # OpenAI Compatible inference backend
       ollama_llm:
         base_url: http://localhost:11434/v1
         model: gpt-oss-rtx3060-minimal
-        temperature: 0.8  # Стандартные настройки
-        top_p: 0.2  # Снижаем для уменьшения "думания"
-        max_tokens: 256  # Ограничиваем длину ответа
+        temperature: 0.8 # value between 0 to 2
+        # seconds to keep the model in memory after inactivity. 
+        # set to -1 to keep the model in memory forever (even after exiting open llm vtuber)
         keep_alive: -1
-        unload_at_exit: true
-        use_harmony: true  # Включаем формат Harmony для gpt-oss
+        unload_at_exit: true # unload the model from memory at exit
+
       openai_compatible_llm:
-        base_url: 'http://localhost:11434/v1'
-        llm_api_key: ''
+        base_url: 'http://127.0.0.1:1234/v1'
+        llm_api_key: 'lm-studio'
         organization_id: null
         project_id: null
-        model: 'qwen2.5:latest'
-        temperature: 1.0
+        model: 'qwen/qwen3-30b'
+        temperature: 0.7
         interrupt_method: 'user'
+        # This is the method to use for prompting the interruption signal. 
+        # If the provider supports inserting system prompt anywhere in the chat memory, use 'system'. 
+        # Otherwise, use 'user'. You don't usually need to change this setting.
+
+      # Memory LLM (non-stream)
+      # (removed) memory_lmstudio_gemma: use lmstudio_llm above
+
+      # Claude API Configuration
       claude_llm:
         base_url: 'https://api.anthropic.com'
         llm_api_key: ''
         model: 'claude-3-haiku-20240307'
+
       llama_cpp_llm:
         model_path: '<path-to-gguf-model-file>'
-        verbose: False
+        verbose: false
+
       lmstudio_llm:
         base_url: http://127.0.0.1:1234/v1
         # Доступные модели (раскомментируйте нужную):
         # model: silicon-masha@q6_k  # Русскоязычная модель, быстрая и качественная
         # model: silicon-masha@q5_k_m  # Русскоязычная модель, более быстрая
         # model: qwen2.5-14b-instruct  # Временное переключение на Qwen 14B
-        model: qwen/qwen3-14b  # Очень мощная модель с поддержкой vision
+        model: gemma-3-270m-it  # Лёгкая модель для памяти/аналитики
         # model: nous-hermes-2-mistral-7b-dpo  # Быстрая и качественная
         # model: solar-10.7b-instruct-v1.0  # Хороший баланс скорости/качества
-        temperature: 0.7
-        top_p: 0.9
-        frequency_penalty: 0.4
-        presence_penalty: 0.2
-        max_tokens: 384  # Ограничиваем длину ответа
+        temperature: 0.2
+        # Убираем лишние параметры, которые могут вызывать проблемы
+        # top_p: 0.9
+        # frequency_penalty: 0.4
+        # presence_penalty: 0.2
+        max_tokens: 384  # Увеличиваем лимит токенов для полных ответов
         # stop: ["\n\nUser:", "\n\nHuman:"]
         # seed: 42
-        stream: false  # Отключаем streaming для избежания служебных токенов
-        use_harmony: false  # Отключаем Harmony для qwen (не gpt-oss модель)
-        # use_harmony: true  # Включать ТОЛЬКО для gpt-oss моделей
-        # llm_api_key: default_api_key  # Убираем API ключ для локального LM Studio
+        stream: false  # Память вызывается без стрима
+        use_harmony: false
+
       openai_llm:
         llm_api_key: ''
         model: 'gpt-4o'
-        temperature: 1.0
+        temperature: 1.0 # value between 0 to 2
+
       gemini_llm:
         llm_api_key: ${GEMINI_API_KEY}
         model: 'gemini-2.0-flash-exp'
-        temperature: 1.0
+        temperature: 1.0 # value between 0 to 2
+
       zhipu_llm:
         llm_api_key: ${ZHIPU_API_KEY}
         model: 'glm-4-flash'
-        temperature: 1.0
+        temperature: 1.0 # value between 0 to 2
+
       deepseek_llm:
         llm_api_key: ${DEEPSEEK_API_KEY}
         model: 'deepseek-chat'
-        temperature: 0.7
+        temperature: 0.7 # note that deepseek's temperature ranges from 0 to 1
+
       mistral_llm:
         llm_api_key: ${MISTRAL_API_KEY}
         model: 'pixtral-large-latest'
-        temperature: 1.0
+        temperature: 1.0 # value between 0 to 2
+
       groq_llm:
         llm_api_key: ${GROQ_API_KEY}
         model: 'llama-3.3-70b-versatile'
-        temperature: 1.0
+        temperature: 1.0 # value between 0 to 2
 
-  # ==== Moved under character_config ====
+  # === Automatic Speech Recognition ===
   asr_config:
+    # speech to text model options: 'faster_whisper', 'whisper_cpp', 'whisper', 'azure_asr', 'fun_asr', 'groq_whisper_asr', 'sherpa_onnx_asr'
     asr_model: sherpa_onnx_asr
+
     sherpa_onnx_asr:
-      model_type: nemo_ctc
+      model_type: nemo_ctc    # 'transducer' | 'paraformer' | 'nemo_ctc' | 'wenet_ctc' | 'whisper' | 'tdnn_ctc' | 'sense_voice'
+      # For nemo_ctc, set nemo_ctc and tokens paths as below (example):
       nemo_ctc: ./models/CTC_RU_ASR_for_sherpa_onnx/GigaAMv2_ctc_public.onnx
       tokens: ./models/CTC_RU_ASR_for_sherpa_onnx/tokens.txt
       num_threads: 4
       provider: cpu
+      use_itn: true
+
     groq_whisper_asr:
       api_key: ''
-      model: 'whisper-large-v3-turbo'
-      lang: ''
+      model: 'whisper-large-v3-turbo' # or 'whisper-large-v3'
+      lang: '' # put nothing and it will be auto
+
     azure_asr:
       api_key: ${AZURE_ASR_KEY}
       region: ${AZURE_ASR_REGION}
-      languages: ['en-US', 'zh-CN', 'ru-RU']
+      languages: ['en-US', 'zh-CN', 'ru-RU'] # List of languages to detect
+
+    # Faster whisper config
     faster_whisper:
-      model_path: 'large-v3-turbo'
+      model_path: 'large-v3-turbo' # model path, name, or id from hf hub
       download_root: 'models/whisper'
-      language: 'ru'
-      device: 'cpu'
+      language: 'ru' # en, zh, or something else. put nothing for auto-detect.
+      device: 'cpu'  # cpu, cuda, or auto. faster-whisper doesn't support mps
       compute_type: 'int8'
-      prompt: ''
+      prompt: '' # You can put a prompt here to help the model understand the context of the audio
+
     whisper_cpp:
+      # all available models are listed on https://abdeladim-s.github.io/pywhispercpp/#pywhispercpp.constants.AVAILABLE_MODELS
       model_name: 'small'
       model_dir: 'models/whisper'
-      print_realtime: False
-      print_progress: False
-      language: 'auto'
-      prompt: ''
+      print_realtime: false
+      print_progress: false
+      language: 'auto' # en, zh, auto,
+      prompt: '' # You can put a prompt here to help the model understand the context of the audio
+
     whisper:
       name: 'medium'
       download_root: 'models/whisper'
       device: 'cpu'
-      prompt: ''
-    fun_asr:
-      model_name: 'iic/SenseVoiceSmall'
-      vad_model: 'fsmn-vad'
-      punc_model: 'ct-punc'
-      device: 'cpu'
-      disable_update: True
-      ncpu: 4
-      hub: 'ms'
-      use_itn: False
-      language: 'auto'
+      prompt: '' # You can put a prompt here to help the model understand the context of the audio
 
+    # FunASR currently needs internet connection on launch
+    # to download / check the models. You can disconnect the internet after initialization.
+    # Or you can use sherpa onnx asr or Faster-Whisper for complete offline experience
+    fun_asr:
+      model_name: 'iic/SenseVoiceSmall' # or 'paraformer-zh'
+      vad_model: 'fsmn-vad' # this is only used to make it works if audio is longer than 30s
+      punc_model: 'ct-punc' # punctuation model.
+      device: 'cpu'
+      disable_update: true # should we check FunASR updates everytime on launch
+      ncpu: 4 # number of threads for CPU internal operations.
+      hub: 'ms' # ms (default) to download models from ModelScope. Use hf to download models from Hugging Face.
+      use_itn: false
+
+    # pip install sherpa-onnx
+    # documentation: https://k2-fsa.github.io/sherpa/onnx/index.html
+    # ASR models download: https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models
+
+  # =================== Text to Speech ===================
   tts_config:
     tts_model: edge_tts
+    # text to speech model options:
+    #   'azure_tts', 'pyttsx3_tts', 'edge_tts', 'bark_tts',
+    #   'cosyvoice_tts', 'melo_tts', 'coqui_tts',
+    #   'fish_api_tts', 'x_tts', 'gpt_sovits_tts', 'sherpa_onnx_tts'
+    #   'minimax_tts', 'openai_tts', 'spark_tts'
     edge_tts:
-      voice: 'ru-RU-SvetlanaNeural' # ГОЛОС МЕНЯТЬ ЗАПРЕЩЕНО!!!
+      voice: 'en-US-AvaMultilingualNeural'
       rate: '+0%'
       volume: '+0%'
-      pitch: '+15Hz'
-    siliconflow_tts:
-      api_url: "https://api.siliconflow.cn/v1/audio/speech"
-      api_key: "your key"
-      default_model: "FunAudioLLM/CosyVoice2-0.5B"
-      default_voice: "speech:Dreamflowers:5bdstvc39i:xkqldnpasqmoqbakubom your voice name"
-      sample_rate: 32000
-      response_format: "mp3"
-      stream: true
-      speed: 1
-      gain: 0
-    spark_tts:
-      api_url: 'http://127.0.0.1:6006/'
-      api_name: "voice_clone"
-      prompt_wav_upload: "https://uploadstatic.mihoyo.com/ys-obc/2022/11/02/16576950/4d9feb71760c5e8eb5f6c700df12fa0c_6824265537002152805.mp3"
-      gender: "female"
-      pitch: 3
-      speed: 3
-    openai_tts:
-      model: 'kokoro'
-      voice: 'af_sky+af_bella'
-      api_key: ${OPENAI_API_KEY}
-      base_url: 'http://localhost:8880/v1'
-      file_extension: 'mp3'
-    minimax_tts:
-      group_id: ''
-      api_key: ${MINIMAX_API_KEY}
-      model: 'speech-02-turbo'
-      voice_id: 'female-shaonv'
-      pronunciation_dict: ''
-    azure_tts:
-      api_key: ''
-      region: ''
-      voice: 'en-US-AshleyNeural'
-      pitch: '26'
-      rate: '1'
-    bark_tts:
-      voice: 'v2/en_speaker_1'
-    cosyvoice_tts:
-      client_url: 'http://127.0.0.1:50000/'
-      mode_checkbox_group: '预训练音色'
-      sft_dropdown: '中文女'
-      prompt_text: ''
-      prompt_wav_upload_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav'
-      prompt_wav_record_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav'
-      instruct_text: ''
-      seed: 0
-      api_name: '/generate_audio'
-    cosyvoice2_tts:
-      client_url: 'http://127.0.0.1:50000/'
-      mode_checkbox_group: '3s极速复刻'
-      sft_dropdown: ''
-      prompt_text: ''
-      prompt_wav_upload_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav'
-      prompt_wav_record_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav'
-      instruct_text: ''
-      stream: False
-      seed: 0
-      speed: 1.0
-      api_name: '/generate_audio'
-    melo_tts:
-      speaker: 'EN-Default'
-      language: 'EN'
-      device: 'auto'
-      speed: 1.0
-    x_tts:
-      api_url: 'http://127.0.0.1:8020/tts_to_audio'
-      speaker_wav: 'female'
-      language: 'en'
-    gpt_sovits_tts:
-      api_url: 'http://127.0.0.1:9880/tts'
-      text_lang: 'zh'
-      ref_audio_path: ''
-      prompt_lang: 'zh'
-      prompt_text: ''
-      text_split_method: 'cut5'
-      batch_size: '1'
-      media_type: 'wav'
-      streaming_mode: 'false'
-    fish_api_tts:
-      api_key: ''
-      reference_id: ''
-      latency: 'balanced'
-      base_url: 'https://api.fish.audio'
-    coqui_tts:
-      model_name: 'tts_models/en/ljspeech/tacotron2-DDC'
-      speaker_wav: ''
-      language: 'en'
-      device: ''
-    sherpa_onnx_tts:
-      vits_model: '/path/to/tts-models/vits-melo-tts-zh_en/model.onnx'
-      vits_lexicon: '/path/to/tts-models/vits-melo-tts-zh_en/lexicon.txt'
-      vits_tokens: '/path/to/tts-models/vits-melo-tts-zh_en/tokens.txt'
-      vits_data_dir: ''
-      vits_dict_dir: '/path/to/tts-models/vits-melo-tts-zh_en/dict'
-      tts_rule_fsts: '/path/to/tts-models/vits-melo-tts-zh_en/number.fst,/path/to/tts-models/vits-melo-tts-zh_en/phone.fst,/path/to/tts-models/vits-melo-tts-zh_en/date.fst,/path/to/tts-models/vits-melo-tts-zh_en/new_heteronym.fst'
-      max_num_sentences: 2
-      sid: 1
-      provider: 'cpu'
-      num_threads: 1
-      speed: 1.0
-      debug: false
+      pitch: '+0Hz'
+      # Reliability and offline fallback (optional)
+      timeout_ms: 15000
+      max_retries: 1
+      enable_fallback: false
+      piper_model_path: ''
+
+  # =================== Voice Activity Detection ===================
+  vtuber_memory:
+    enabled: true
+    provider: 'memgpt'  # 'memgpt' (Chroma wrapper), or 'letta'
+
+  #  =================== LLM Backend Settings ===================
 
   vad_config:
-    vad_model: silero_vad
+    vad_model:
     silero_vad:
       orig_sr: 16000
       target_sr: 16000
@@ -406,60 +460,24 @@ character_config:
       required_misses: 24
       smoothing_window: 5
 
-  live2d_config:
-    enable_expressions: true
-    enable_motions: true
-    idle_motion_interval: 8
-    expression_sensitivity: 0.8
-    emotion_voice_map:
-      neutral: "{neutral}"
-      joy: "{rate:+20%}{volume:+10%}{pitch:+20Hz}"
-      smile: "{rate:+15%}{volume:+5%}{pitch:+18Hz}"
-      laugh: "{rate:+30%}{volume:+20%}{pitch:+30Hz}"
-      anger: "{rate:+10%}{volume:+10%}{pitch:-10Hz}"
-      disgust: "{rate:-10%}{volume:-5%}{pitch:-5Hz}"
-      fear: "{rate:-15%}{volume:-5%}{pitch:+16Hz}"
-      sadness: "{rate:-20%}{volume:-10%}{pitch:+17Hz}"
-      surprise: "{rate:+20%}{volume:+10%}{pitch:+25Hz}"
-      confused: "{rate:-5%}{volume:+0%}{pitch:+10Hz}"
-      thinking: "{rate:-5%}{volume:+5%}{pitch:+16Hz}"
-      excited: "{rate:+25%}{volume:+15%}{pitch:+25Hz}"
-      shy: "{rate:-10%}{volume:-5%}{pitch:+15Hz}"
-      wink: "{rate:+15%}{volume:+5%}{pitch:+18Hz}"
-
   tts_preprocessor_config:
     remove_special_char: true
     ignore_brackets: true
     ignore_parentheses: true
     ignore_asterisks: true
     ignore_angle_brackets: true
+
     translator_config:
       translate_audio: false
-      translate_provider: deeplx
+      translate_provider: 'deeplx'
+
       deeplx:
-        deeplx_target_lang: JA
-        deeplx_api_endpoint: http://localhost:1188/v2/translate
+        deeplx_target_lang: 'JA'
+        deeplx_api_endpoint: 'http://localhost:1188/v2/translate'
+
       tencent:
         secret_id: ''
         secret_key: ''
-        region: ap-guangzhou
-        source_lang: zh
-        target_lang: ja 
-
-  twitch_config:
-    enabled: true
-    channel_name: 'lllzard'
-    app_id: 'n2wvozuh8knwjjhtyy6q352eo9l4li'
-    app_secret: 'pn532a4uexz568k1n4hrrj85cg1uqx'
-    max_message_length: 300
-    max_recent_messages: 10
-
-  vtuber_memory:
-    enabled: true
-    provider: 'memgpt'
-
-# Live Streaming Integration
-live_config:
-  bilibili_live:
-    room_ids: [1991478060]
-    sessdata: "" 
+        region: 'ap-guangzhou'
+        source_lang: 'zh'
+        target_lang: 'ja'

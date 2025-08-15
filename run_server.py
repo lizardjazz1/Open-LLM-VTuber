@@ -253,10 +253,12 @@ def run(console_log_level: str):
     check_frontend_submodule(lang)
 
     # Sync user config with default config
-    try:
-        upgrade_manager.sync_user_config()
-    except Exception as e:
-        logger.error(f"Error syncing user config: {e}")
+    # try:
+    #     upgrade_manager.sync_user_config()
+    #     # Also apply field/comment sync and version migrations so extra keys are removed
+    #     upgrade_manager.update_user_config()
+    # except Exception as e:
+    #     logger.error(f"Error syncing user config: {e}")
 
     atexit.register(WebSocketServer.clean_cache)
 

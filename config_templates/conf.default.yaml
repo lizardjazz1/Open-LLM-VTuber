@@ -1,16 +1,23 @@
 # System Settings: Setting related to the initialization of the server
 system_config:
-  conf_version: "1.0"
+  conf_version: "v1.2.0"
   host: "127.0.0.1"
   port: 12393
   # Language setting for the application (e.g., 'en', 'ru', 'zh', 'jp', 'fr')
   # Just add your language file to locales/ folder and set it here
   language: "en"
+  # Label prefix for server-origin messages (used in prompts): e.g. 'server', 'home'
+  server_label: "server"
   # New setting for alternative configurations
-  config_alts_dir: "config_templates/"
+  config_alts_dir: "characters"
+  # Tip: Prefer placing your full character_config in characters/<name>.yaml
+  # and set config_alt to that <name>. Leave null to use inline character_config below.
   config_alt: null
   # Enable proxy mode for live platform integrations
   enable_proxy: false
+  # Client log ingestion from frontend
+  client_log_ingest_enabled: false        # Enable /logs to accept logs from frontend (default: false)
+  client_log_ingest_require_token: false  # Local-default: no token required; set true for production
   # Twitch integration settings
   twitch_config:
     enabled: false
@@ -24,7 +31,7 @@ system_config:
     # This will be appended to the end of system prompt to let LLM include keywords to control facial expressions.
     # Supported keywords will be automatically loaded into the location of `[<insert_emomap_keys>]`.
     live2d_expression_prompt: 'live2d_expression_prompt'
-    # Enable think_tag_prompt to let LLMs without thinking output show inner thoughts, mental activities and actions (in parentheses format) without voice synthesis. See think_tag_prompt for more details.
+    # Enable think_tag_prompt to let LLMs without thinking output show inner thoughts, mental activities and actions (in parentheses format). See think_tag_prompt for more details.
     # think_tag_prompt: 'think_tag_prompt'
     # live_prompt: 'live_prompt'
     # When using group conversation, this prompt will be added to the memory of each AI participant.
@@ -40,12 +47,19 @@ system_config:
     # tool_guidance_prompt: 'tool_guidance_prompt' 
   # Memory module
   relationships_db_path: 'cache/relationships.sqlite3'
-  memory_consolidation_interval_sec: 900
+  memory_consolidation_interval_sec: 1800
+  deep_consolidation_every_n_streams: 5
+  # NEW: trigger consolidation every N inbound messages
+  consolidate_every_n_messages: 30
   chroma_persist_dir: 'cache/chroma'
-  chroma_collection: 'vtuber_memory'
+  chroma_collection: vtuber_ltm
   embeddings_model: 'paraphrase-multilingual-MiniLM-L12-v2'
+  embeddings_api_key: ''   # Optional: set to use OpenAI embeddings
+  embeddings_api_base: ''  # Optional: override base URL for embeddings provider
 
-# configuration for the default character
+# configuration for the default character (inline)
+# Note: For production, consider moving this block into characters/<name>.yaml
+# and set system_config.config_alt to <name> to keep conf.yaml minimal.
 character_config:
   conf_name: 'mao_pro' # The name of character configuration file.
   conf_uid: 'mao_pro_001' # The unique identifier of character configuration.
@@ -67,7 +81,7 @@ character_config:
   # Vtuber Memory Module
   vtuber_memory:
     enabled: true
-    provider: 'default'  # 'default' (Chroma wrapper), 'letta', 'memgpt' (future)
+    provider: 'memgpt'  # 'memgpt' (Chroma wrapper), or 'letta'
 
   #  =================== LLM Backend Settings ===================
 
@@ -84,6 +98,11 @@ character_config:
         # 'openai_llm', 'gemini_llm', 'zhipu_llm', 'deepseek_llm', 'groq_llm'
         # 'mistral_llm', 'lmstudio_llm', and more
         llm_provider: 'ollama_llm'
+        # NEW (optional): split chat vs memory LLMs
+        # chat_llm_provider: 'openai_compatible_llm'
+        # chat_llm_key: 'chat_lmstudio_qwen3'
+        # memory_llm_provider: 'openai_compatible_llm'
+        # memory_llm_key: 'memory_lmstudio_gemma'
         # let ai speak as soon as the first comma is received on the first sentence
         # to reduced latency.
         faster_first_response: True
@@ -93,6 +112,18 @@ character_config:
         # 'Plus' means that it has the ability to call tools by using OpenAI API.
         use_mcpp: True
         mcp_enabled_servers: ["time", "ddg-search"] # Enabled MCP servers
+        # Memory agent settings
+        summarize_max_tokens: 256
+        summarize_timeout_s: 25
+        sentiment_max_tokens: 96
+        sentiment_timeout_s: 12
+        consolidate_recent_messages: 120
+        # VTuber personality and behavior settings
+        stream_mode: true  # Enable stream mode for VTuber behavior
+        spicy_mode: false  # Enable spicy mode for more sarcastic responses
+        personality_consistency: 0.8  # Personality consistency level (0.0 to 1.0)
+        creativity_level: 0.7  # Creativity level for response generation (0.0 to 1.0)
+        emotional_adaptability: 0.9  # Emotional adaptability level (0.0 to 1.0)
 
       letta_agent:
         host: 'localhost' # Host address
@@ -116,6 +147,20 @@ character_config:
     llm_configs:
       # a configuration pool for the credentials and connection details for
       # all of the stateless llm providers that will be used in different agents
+
+      # EXAMPLE: LM Studio dual-LLM keys (uncomment and customize)
+      # chat_lmstudio_qwen3:
+      #   base_url: 'http://127.0.0.1:1234/v1'
+      #   model: 'qwen/qwen3-14b'
+      #   temperature: 0.7
+      #   top_p: 0.9
+      #   stream: true
+      # memory_lmstudio_gemma:
+      #   base_url: 'http://127.0.0.1:1234/v1'
+      #   model: 'gemma-3-270m-it'
+      #   temperature: 0.2
+      #   top_p: 0.9
+      #   stream: false
 
       # Stateless LLM with Template (For Non-ChatML LLMs, usually not needed)
       stateless_llm_with_template:
@@ -161,9 +206,19 @@ character_config:
         unload_at_exit: True # unload the model from memory at exit
 
       lmstudio_llm:
-        base_url: 'http://localhost:1234/v1'
-        model: 'qwen2.5:latest'
-        temperature: 1.0 # value between 0 to 2
+        base_url: 'http://127.0.0.1:1234/v1'
+        model: 'qwen/qwen3-14b'
+        temperature: 0.7
+        top_p: 0.9
+        frequency_penalty: 0.4
+        presence_penalty: 0.2
+        max_tokens: 384
+        stream: false
+        use_harmony: false
+        # Additional generation settings for better VTuber responses
+        stop_sequences: ["\n\n", "Human:", "Assistant:", "User:", "AI:"]
+        repetition_penalty: 1.1
+        length_penalty: 0.8
 
       openai_llm:
         llm_api_key: 'Your Open AI API key'
@@ -241,51 +296,18 @@ character_config:
       ncpu: 4 # number of threads for CPU internal operations.
       hub: 'ms' # ms (default) to download models from ModelScope. Use hf to download models from Hugging Face.
       use_itn: False
-      language: 'auto' # zh, en, auto
 
     # pip install sherpa-onnx
     # documentation: https://k2-fsa.github.io/sherpa/onnx/index.html
     # ASR models download: https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models
     sherpa_onnx_asr:
-      model_type: 'sense_voice' # 'transducer', 'paraformer', 'nemo_ctc', 'wenet_ctc', 'whisper', 'tdnn_ctc'
-      #  Choose only ONE of the following, depending on the model_type:
-      # --- For model_type: 'transducer' ---
-      # encoder: ''        # Path to the encoder model (e.g., 'path/to/encoder.onnx')
-      # decoder: ''        # Path to the decoder model (e.g., 'path/to/decoder.onnx')
-      # joiner: ''         # Path to the joiner model (e.g., 'path/to/joiner.onnx')
-      # --- For model_type: 'paraformer' ---
-      # paraformer: ''     # Path to the paraformer model (e.g., 'path/to/model.onnx')
-      # --- For model_type: 'nemo_ctc' ---
-      # nemo_ctc: ''        # Path to the NeMo CTC model (e.g., 'path/to/model.onnx')
-      # --- For model_type: 'wenet_ctc' ---
-      # wenet_ctc: ''       # Path to the WeNet CTC model (e.g., 'path/to/model.onnx')
-      # --- For model_type: 'tdnn_ctc' ---
-      # tdnn_model: ''      # Path to the TDNN CTC model (e.g., 'path/to/model.onnx')
-      # --- For model_type: 'whisper' ---
-      # whisper_encoder: '' # Path to the Whisper encoder model (e.g., 'path/to/encoder.onnx')
-      # whisper_decoder: '' # Path to the Whisper decoder model (e.g., 'path/to/decoder.onnx')
-      # --- For model_type: 'sense_voice' ---
-      # I've coded so that the sense voice model will get automatically downloaded.
-      # For other models, you need to download them yourself
-      sense_voice: './models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/model.int8.onnx' # Path to the SenseVoice model (e.g., 'path/to/model.onnx')
-      tokens: './models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/tokens.txt' # Path to tokens.txt (required for all model types)
-      # --- Optional parameters (with defaults shown) ---
-      # hotwords_file: ''     # Path to hotwords file (if using hotwords)
-      # hotwords_score: 1.5   # Score for hotwords
-      # modeling_unit: ''     # Modeling unit for hotwords (if applicable)
-      # bpe_vocab: ''         # Path to BPE vocabulary (if applicable)
-      num_threads: 4 # Number of threads
-      # whisper_language: '' # Language for Whisper models (e.g., 'en', 'zh', etc. - if using Whisper)
-      # whisper_task: 'transcribe'  # Task for Whisper models ('transcribe' or 'translate' - if using Whisper)
-      # whisper_tail_paddings: -1   # Tail padding for Whisper models (if using Whisper)
-      # blank_penalty: 0.0    # Penalty for blank symbol
-      # decoding_method: 'greedy_search'  # 'greedy_search' or 'modified_beam_search'
-      # debug: False # Enable debug mode
-      # sample_rate: 16000 # Sample rate (should match the model's expected sample rate)
-      # feature_dim: 80       # Feature dimension (should match the model's expected feature dimension)
-      use_itn: True # Enable ITN for SenseVoice models (should set to False if not using SenseVoice models)
-      # Provider for inference (cpu or cuda) (cuda option needs additional settings. Please check our docs)
-      provider: 'cpu' 
+      model_type: 'nemo_ctc'  # 'transducer' | 'paraformer' | 'nemo_ctc' | 'wenet_ctc' | 'whisper' | 'tdnn_ctc' | 'sense_voice'
+      # For nemo_ctc, set nemo_ctc and tokens paths as below (example):
+      nemo_ctc: './models/CTC_RU_ASR_for_sherpa_onnx/GigaAMv2_ctc_public.onnx'
+      tokens: './models/CTC_RU_ASR_for_sherpa_onnx/tokens.txt'
+      num_threads: 4
+      provider: 'cpu'
+      use_itn: True
 
     groq_whisper_asr:
       api_key: ''
@@ -299,197 +321,51 @@ character_config:
     #   'azure_tts', 'pyttsx3_tts', 'edge_tts', 'bark_tts',
     #   'cosyvoice_tts', 'melo_tts', 'coqui_tts',
     #   'fish_api_tts', 'x_tts', 'gpt_sovits_tts', 'sherpa_onnx_tts'
-    #   'minimax_tts'
-
-    azure_tts:
-      api_key: 'azure-api-key'
-      region: 'eastus'
-      voice: 'en-US-AshleyNeural'
-      pitch: '26' # percentage of the pitch adjustment
-      rate: '1' # rate of speak
-
-    bark_tts:
-      voice: 'v2/en_speaker_1'
-
+    #   'minimax_tts', 'openai_tts', 'spark_tts'
     edge_tts:
-      # Check out doc at https://github.com/rany2/edge-tts
-      # Use `edge-tts --list-voices` to list all available voices
-      voice: 'en-US-AvaMultilingualNeural' # 'en-US-AvaMultilingualNeural' #'zh-CN-XiaoxiaoNeural' # 'ja-JP-NanamiNeural'
-
-    # pyttsx3_tts doesn't have any config.
-
-    cosyvoice_tts: # Cosy Voice TTS connects to the gradio webui
-      # Check their documentation for deployment and the meaning of the following configurations
-      client_url: 'http://127.0.0.1:50000/' # CosyVoice gradio demo webui url
-      mode_checkbox_group: '预训练音色'
-      sft_dropdown: '中文女'
-      prompt_text: ''
-      prompt_wav_upload_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav'
-      prompt_wav_record_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav'
-      instruct_text: ''
-      seed: 0
-      api_name: '/generate_audio'
-
-    cosyvoice2_tts: # Cosy Voice TTS connects to the gradio webui
-      # Check their documentation for deployment and the meaning of the following configurations
-      client_url: 'http://127.0.0.1:50000/' # CosyVoice gradio demo webui url
-      mode_checkbox_group: '3s极速复刻' 
-      sft_dropdown: '' 
-      prompt_text: '' 
-      prompt_wav_upload_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav' 
-      prompt_wav_record_url: 'https://github.com/gradio-app/gradio/raw/main/test/test_files/audio_sample.wav' 
-      instruct_text: '' 
-      stream: False 
-      seed: 0 
-      speed: 1.0 
-      api_name: '/generate_audio' 
-
-    melo_tts:
-      speaker: 'EN-Default' # ZH
-      language: 'EN' # ZH
-      device: 'auto' # You can set it manually to 'cpu' or 'cuda' or 'cuda:0' or 'mps'
-      speed: 1.0
-
-    x_tts:
-      api_url: 'http://127.0.0.1:8020/tts_to_audio'
-      speaker_wav: 'female'
-      language: 'en'
-
-    gpt_sovits_tts:
-      # put ref audio to root path of GPT-Sovits, or set the path here
-      api_url: 'http://127.0.0.1:9880/tts'
-      text_lang: 'zh'
-      ref_audio_path: ''
-      prompt_lang: 'zh'
-      prompt_text: ''
-      text_split_method: 'cut5'
-      batch_size: '1'
-      media_type: 'wav'
-      streaming_mode: 'false'
-
-    fish_api_tts:
-      # The API key for the Fish TTS API.
-      api_key: ''
-      # The reference ID for the voice to be used. Get it on the [Fish Audio website](https://fish.audio/).
-      reference_id: ''
-      # Either 'normal' or 'balanced'. balance is faster but lower quality.
-      latency: 'balanced'
-      base_url: 'https://api.fish.audio'
-
-    coqui_tts:
-      # Name of the TTS model to use. If empty, will use default model
-      # do 'tts --list_models' to list supported models for coqui-tts
-      # Some examples:
-      # - 'tts_models/en/ljspeech/tacotron2-DDC' (single speaker)
-      # - 'tts_models/zh-CN/baker/tacotron2-DDC-GST' (single speaker for chinese)
-      # - 'tts_models/multilingual/multi-dataset/your_tts' (multi-speaker)
-      # - 'tts_models/multilingual/multi-dataset/xtts_v2' (multi-speaker)
-      model_name: 'tts_models/en/ljspeech/tacotron2-DDC'
-      speaker_wav: ''
-      language: 'en'
-      device: ''
-
-    siliconflow_tts:
-      api_url: "https://api.siliconflow.cn/v1/audio/speech"
-      api_key: "your key"
-      default_model: "FunAudioLLM/CosyVoice2-0.5B"
-      default_voice: "speech:Dreamflowers:5bdstvc39i:xkqldnpasqmoqbakubom your voice name"  # Default voice configuration in the format: "speech:MODEL_NAME:VOICE_ID:your voice name"
-      sample_rate: 32000  # Control the output sample rate. The default values and differ for different video output types, as follows: opus: Supports 48000 Hz. wav, pcm: Supports 8000, 16000, 24000, 32000, 44100 Hz, with a default of 44100 Hz. mp3: Supports 32000, 44100 Hz, with a default of 44100 Hz.
-      response_format: "mp3" # The format to audio out. Supported formats are mp3, opus, wav, pcm
-      stream: true
-      speed: 1
-      gain: 0
-
-    # pip install sherpa-onnx
-    # documentation: https://k2-fsa.github.io/sherpa/onnx/index.html
-    # TTS models download: https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models
-    # see config_alts for more examples
-    sherpa_onnx_tts:
-      vits_model: '/path/to/tts-models/vits-melo-tts-zh_en/model.onnx' # Path to VITS model file
-      vits_lexicon: '/path/to/tts-models/vits-melo-tts-zh_en/lexicon.txt' # Path to lexicon file (optional)
-      vits_tokens: '/path/to/tts-models/vits-melo-tts-zh_en/tokens.txt' # Path to tokens file
-      vits_data_dir: '' # '/path/to/tts-models/vits-piper-en_GB-cori-high/espeak-ng-data'  # Path to espeak-ng data (optional)
-      vits_dict_dir: '/path/to/tts-models/vits-melo-tts-zh_en/dict' # Path to Jieba dict (optional, for Chinese)
-      tts_rule_fsts: '/path/to/tts-models/vits-melo-tts-zh_en/number.fst,/path/to/tts-models/vits-melo-tts-zh_en/phone.fst,/path/to/tts-models/vits-melo-tts-zh_en/date.fst,/path/to/tts-models/vits-melo-tts-zh_en/new_heteronym.fst' # Path to rule FSTs file (optional)
-      max_num_sentences: 2 # Max sentences per batch (or -1 for all)
-      sid: 1 # Speaker ID (for multi-speaker models)
-      provider: 'cpu' # Use 'cpu', 'cuda' (GPU), or 'coreml' (Apple)
-      num_threads: 1 # Number of computation threads
-      speed: 1.0 # Speech speed (1.0 is normal)
-      debug: false # Enable debug mode (True/False)
-    
-    spark_tts:
-      api_url: 'http://127.0.0.1:6006/' # API URL. Uses Gradio's built-in front-end API. Repository: https://github.com/SparkAudio/Spark-TTS
-      api_name:  "voice_clone" # Endpoint name. Options: voice_clone, voice_creation
-      prompt_wav_upload: "https://uploadstatic.mihoyo.com/ys-obc/2022/11/02/16576950/4d9feb71760c5e8eb5f6c700df12fa0c_6824265537002152805.mp3" # Reference audio URL. Provide if api_name equals "voice_clone"
-      gender:  "female" # Voice type (gender). Provide if api_name equals "voice_creation"
-      pitch:  3 # Pitch shift (in semitones) default 3,range 1-5. Valid only if api_name equals "voice_creation"
-      speed:  3 # Speed of the voice (in percent) default 3,range 1-5. Valid only if api_name equals "voice_creation"
-
-    openai_tts: # Configuration for OpenAI-compatible TTS endpoints
-      # These settings override the defaults in the openai_tts.py file if provided
-      model: 'kokoro' # Model name expected by the server (e.g., 'tts-1', 'kokoro')
-      voice: 'af_sky+af_bella' # Voice name(s) expected by the server (e.g., 'alloy', 'af_sky+af_bella')
-      api_key: 'not-needed' # API key if required by the server
-      base_url: 'http://localhost:8880/v1' # Base URL of the TTS server
-      file_extension: 'mp3' # Audio file format ('mp3' or 'wav')
-
-    # For more details, see: https://platform.minimaxi.com/document/Announcement
-    minimax_tts:
-      group_id: '' # Your minimax group_id
-      api_key: '' # Your minimax api_key
-      # Supported models: 'speech-02-hd', 'speech-02-turbo' (recommended: 'speech-02-turbo')
-      model: 'speech-02-turbo' # minimax model name
-      voice_id: 'female-shaonv' # minimax voice id, default is 'female-shaonv'
-      # Custom pronunciation dictionary, default empty.
-      # Example: '{"tone": ["测试/(ce4)(shi4)", "危险/dangerous"]}'
-      pronunciation_dict: ''
+      voice: 'en-US-AvaMultilingualNeural'
+      rate: '+0%'
+      volume: '+0%'
+      pitch: '+0Hz'
+      # Reliability and offline fallback (optional)
+      timeout_ms: 15000
+      max_retries: 1
+      enable_fallback: false
+      piper_model_path: ''
 
   # =================== Voice Activity Detection ===================
   vad_config:
     vad_model: null
 
     silero_vad:
-      orig_sr: 16000 # Original Audio Sample Rate
-      target_sr: 16000 # Target Audio Sample Rate
-      prob_threshold: 0.4 # Probability Threshold for VAD (можно увеличить до 0.5 для предотвращения эхо)
-      db_threshold: 60 # Decibel Threshold for VAD (можно увеличить до 65 для предотвращения эхо)
-      required_hits: 3 # Number of consecutive hits required to consider speech
-      required_misses: 24 # Number of consecutive misses required to consider silence
-      smoothing_window: 5 # Smoothing window size for VAD
+      orig_sr: 16000
+      target_sr: 16000
+      prob_threshold: 0.4
+      db_threshold: 60
+      required_hits: 3
+      required_misses: 24
+      smoothing_window: 5
+      min_speech_ms: 250
+      max_speech_ms: 12000
 
   tts_preprocessor_config:
-    # settings regarding preprocessing for text that goes into TTS
-
-    remove_special_char: True # remove special characters like emoji from audio generation
-    ignore_brackets: True # ignore everything inside brackets
-    ignore_parentheses: True # ignore everything inside parentheses
-    ignore_asterisks: True # ignore everything wrapped inside asterisks
-    ignore_angle_brackets: True # ignore everything wrapped inside <text>
+    remove_special_char: True
+    ignore_brackets: True
+    ignore_parentheses: True
+    ignore_asterisks: True
+    ignore_angle_brackets: True
 
     translator_config:
-      # Like... you speak and read the subtitles in English, and the TTS speaks Japanese or that kind of things
-      translate_audio: False # Warning: you need to deploy DeeplX to use this. Otherwise it's going to crash
-      translate_provider: 'deeplx' # deeplx or tencent
+      translate_audio: False
+      translate_provider: 'deeplx'
 
       deeplx:
         deeplx_target_lang: 'JA'
         deeplx_api_endpoint: 'http://localhost:1188/v2/translate'
-      
-      #  Tencent Text Translation  5 million characters per month  Remember to turn off post-payment, need to manually go to Machine Translation Console > System Settings to disable
-      #   https://cloud.tencent.com/document/product/551/35017
-      #   https://console.cloud.tencent.com/cam/capi
+
       tencent:
         secret_id: ''
         secret_key: ''
         region: 'ap-guangzhou'
         source_lang: 'zh'
         target_lang: 'ja'
-
-# Live Streaming Integration
-live_config:
-  bilibili_live:
-    # List of BiliBili live room IDs to monitor
-    room_ids: [1991478060]
-    # SESSDATA cookie value (optional, for authenticated requests)
-    sessdata: ""

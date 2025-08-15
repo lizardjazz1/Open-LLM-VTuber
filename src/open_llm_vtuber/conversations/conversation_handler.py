@@ -36,6 +36,21 @@ async def handle_conversation_trigger(
     enqueue_payload: Optional[Dict[str, Any]] = None
 
     if msg_type == "ai-speak-signal":
+        # Anti-spam: cooldown proactive speaks
+        try:
+            import time as _time
+
+            now = int(_time.time())
+            cooldown_until = int(getattr(context, "_proactive_cooldown_until", 0))
+            if now < cooldown_until:
+                logger.info(
+                    f"Proactive speak throttled (cooldown until {cooldown_until}, now={now})"
+                )
+                return
+            # Set next cooldown (45s)
+            context._proactive_cooldown_until = now + 45
+        except Exception:
+            pass
         try:
             # Get proactive speak prompt from config
             prompt_name = "proactive_speak_prompt"
@@ -58,7 +73,7 @@ async def handle_conversation_trigger(
         }
 
         # Standardized inbound log
-        logger.info(f"[system:AI] {user_input[:200]}")
+        logger.info(f"[server:AI] {user_input[:200]}")
 
         await websocket.send_text(
             json.dumps(
@@ -115,6 +130,40 @@ async def handle_conversation_trigger(
                 "Skipping conversation start: no audio samples captured (mic toggled without voice)"
             )
             return
+        # Min/max duration guard to avoid micro-segments or overlong buffers
+        try:
+            sr = int(
+                getattr(getattr(context, "asr_engine", None), "SAMPLE_RATE", 16000)
+            )
+        except Exception:
+            sr = 16000
+        # Read from config if available (milliseconds -> samples)
+        try:
+            vad_cfg = getattr(
+                getattr(context.character_config, "vad_config", None),
+                "silero_vad",
+                None,
+            )
+            min_ms = int(getattr(vad_cfg, "min_speech_ms", 250) or 250)
+            max_ms = int(getattr(vad_cfg, "max_speech_ms", 12000) or 12000)
+        except Exception:
+            min_ms, max_ms = 250, 12000
+        min_samples = int((min_ms / 1000.0) * sr)
+        max_samples = int((max_ms / 1000.0) * sr)
+        if audio_len < min_samples:
+            logger.info(
+                f"Skipping ASR: too short segment ({audio_len} < {min_samples} samples)"
+            )
+            return
+        if audio_len > max_samples:
+            # Trim hard to max duration to keep latency predictable
+            try:
+                user_input = user_input[:max_samples]
+                logger.info(
+                    f"Trimming overlong audio segment to {max_samples} samples (from {audio_len})"
+                )
+            except Exception:
+                pass
 
     images = data.get("images")
     session_emoji = np.random.choice(EMOJI_LIST)

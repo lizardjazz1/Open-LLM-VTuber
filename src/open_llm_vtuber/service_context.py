@@ -38,11 +38,11 @@ from .twitch import TwitchClient, TwitchMessage
 from .memory.memory_service import MemoryService
 from .vtuber_memory import VtuberMemoryService, VtuberMemoryInterface
 from .vtuber_memory.scheduler import ConsolidationScheduler
+from .vtuber_memory.config import SESSION_TTL_SEC
 
 # Import i18n system
 from .i18n import t
 
-from prompts import prompt_loader
 
 # // DEBUG: [FIXED] Request ID propagation utilities | Ref: 5
 from .logging_utils import set_request_id
@@ -236,7 +236,35 @@ class ServiceContext:
                 # Merge metadata
                 md = dict(item.get("metadata") or {})
                 md.setdefault("from_name", item["from_name"])
-                md.setdefault("text_source", item["text_source_enum"])  # Enum instance
+                md.setdefault(
+                    "text_source_enum", item["text_source_enum"]
+                )  # Enum instance
+
+                # Update Relationships for local UI messages as well
+                try:
+                    from .vtuber_memory.relationships import RelationshipsDB
+
+                    source = str(item.get("source") or "")
+                    from_name = str(item.get("from_name") or "")
+                    # Normalize user_id by source
+                    if source == "twitch":
+                        user_id = (
+                            f"Twitch:{from_name}" if from_name else "Twitch:unknown"
+                        )
+                        username = from_name or None
+                    else:
+                        user_id = f"Local:{from_name}" if from_name else "Local:unknown"
+                        username = from_name or None
+                    db = RelationshipsDB(
+                        getattr(
+                            self.system_config,
+                            "relationships_db_path",
+                            "cache/relationships.sqlite3",
+                        )
+                    )
+                    db.ensure_and_touch(user_id=user_id, username=username)
+                except Exception:
+                    pass
 
                 logger.info(
                     f"Dequeued (p={priority}) [{item['source']}:{item['from_name']}] {item['content'][:200]}"
@@ -333,6 +361,9 @@ class ServiceContext:
 
     async def _init_mcp_components(self, use_mcpp, enabled_servers):
         """Initializes MCP components based on configuration, dynamically fetching tool info."""
+        logger.info(
+            f"🔧 Initializing MCP components: use_mcpp={use_mcpp}, enabled_servers={enabled_servers}"
+        )
         logger.debug(
             f"Initializing MCP components: use_mcpp={use_mcpp}, enabled_servers={enabled_servers}"
         )
@@ -346,6 +377,9 @@ class ServiceContext:
         self.mcp_prompt = ""
 
         if use_mcpp and enabled_servers:
+            logger.info(
+                f"🔧 MCP is enabled and servers are configured: {enabled_servers}"
+            )
             # 1. Initialize ServerRegistry
             self.mcp_server_registery = ServerRegistry()
             logger.info(t("service.server_registry_initialized"))
@@ -359,6 +393,9 @@ class ServiceContext:
                 return  # Exit if ToolAdapter is mandatory and not initialized
 
             try:
+                logger.info(
+                    f"🔧 Getting tools from ToolAdapter for servers: {enabled_servers}"
+                )
                 (
                     mcp_prompt_string,
                     openai_tools,
@@ -425,6 +462,9 @@ class ServiceContext:
                 t("service.use_mcpp_is_true_but_mcp_enabled_servers_list_is_empty")
             )
         else:
+            logger.info(
+                f"🔧 MCP components not initialized: use_mcpp={use_mcpp}, enabled_servers={enabled_servers}"
+            )
             logger.debug(t("service.mcp_components_not_initialized"))
 
     async def close(self):
@@ -538,6 +578,8 @@ class ServiceContext:
                     text = (x if isinstance(x, str) else x.get("text")) if x else None
                     if not text:
                         continue
+                    # Clip overlong facts for LTM hygiene
+                    text = text[:200]
                     importance = (
                         float(x.get("importance", 0.6)) if isinstance(x, dict) else 0.6
                     )
@@ -643,6 +685,8 @@ class ServiceContext:
                     text = (x if isinstance(x, str) else x.get("text")) if x else None
                     if not text:
                         continue
+                    # Clip overlong facts for LTM hygiene
+                    text = text[:200]
                     importance = (
                         float(x.get("importance", 0.6)) if isinstance(x, dict) else 0.6
                     )
@@ -752,9 +796,15 @@ class ServiceContext:
         self.client_uid = client_uid
 
         # Initialize session-specific MCP components
+        use_mcpp = self.character_config.agent_config.agent_settings.basic_memory_agent.use_mcpp
+        enabled_servers = self.character_config.agent_config.agent_settings.basic_memory_agent.mcp_enabled_servers
+        logger.info(
+            f"🔧 About to initialize MCP components: use_mcpp={use_mcpp}, enabled_servers={enabled_servers}"
+        )
+
         await self._init_mcp_components(
-            self.character_config.agent_config.agent_settings.basic_memory_agent.use_mcpp,
-            self.character_config.agent_config.agent_settings.basic_memory_agent.mcp_enabled_servers,
+            use_mcpp,
+            enabled_servers,
         )
 
         # Ensure queue worker is running in this loop
@@ -864,6 +914,20 @@ class ServiceContext:
             self.character_config.agent_config.agent_settings.basic_memory_agent.mcp_enabled_servers,
         )
 
+        # If MCP is disabled, ensure we don't pass MCP components to the agent (avoid warnings)
+        try:
+            if not self.character_config.agent_config.agent_settings.basic_memory_agent.use_mcpp:
+                self.tool_manager = None
+                self.tool_executor = None
+                self.mcp_client = None
+                self.mcp_prompt = ""
+                try:
+                    self.json_detector = None  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
         # init agent from character config
         await self.init_agent(
             self.character_config.agent_config,
@@ -874,8 +938,14 @@ class ServiceContext:
             self.character_config.tts_preprocessor_config.translator_config
         )
 
-        # init twitch from character config
-        await self.init_twitch(self.character_config.twitch_config)
+        # init twitch from system (server-level settings)
+        try:
+            sys_tw_conf = getattr(self.system_config, "twitch_config", None)
+            if sys_tw_conf and getattr(sys_tw_conf, "enabled", False):
+                await self.init_twitch(sys_tw_conf)
+        except Exception:
+            # Non-fatal if twitch init fails
+            pass
 
         # Ensure queue worker is running in this loop
         await self._ensure_worker()
@@ -948,12 +1018,12 @@ class ServiceContext:
             )
         )
 
-        # Initialize memory service once
-        if self.memory_service is None:
-            try:
-                self.memory_service = MemoryService(enabled=True)
-            except Exception as e:
-                logger.warning(f"MemoryService init failed: {e}")
+        # Initialize memory service once (legacy; kept for fallback compatibility)
+        # if self.memory_service is None:
+        #     try:
+        #         self.memory_service = MemoryService(enabled=True)
+        #     except Exception as e:
+        #         logger.warning(f"MemoryService init failed: {e}")
 
         # Initialize vtuber memory wrapper according to config (non-breaking)
         if self.vtuber_memory_service is None:
@@ -982,8 +1052,25 @@ class ServiceContext:
             )
             if interval >= 60:
                 if self._consolidation_scheduler is None:
+
+                    async def _post_maintenance():
+                        try:
+                            if self.vtuber_memory_service and getattr(
+                                self.vtuber_memory_service, "enabled", False
+                            ):
+                                # Exclude active history from pruning
+                                active = [self.history_uid] if self.history_uid else []
+                                ttl = SESSION_TTL_SEC
+                                self.vtuber_memory_service.prune_session_by_ttl_ex(
+                                    ttl_sec=int(ttl), exclude_history_uids=active
+                                )
+                        except Exception:
+                            pass
+
                     self._consolidation_scheduler = ConsolidationScheduler(
-                        interval_sec=interval, trigger=self.trigger_memory_consolidation
+                        interval_sec=interval,
+                        trigger=self.trigger_memory_consolidation,
+                        post_hook=_post_maintenance,
                     )
                 await self._consolidation_scheduler.start()
         except Exception:
@@ -997,10 +1084,17 @@ class ServiceContext:
             logger.debug(t("service.agent_already_initialized"))
             return
 
-        system_prompt = await self.construct_system_prompt(persona_prompt)
+        system_prompt = persona_prompt
 
         # Pass avatar to agent factory
         avatar = self.character_config.avatar or ""  # Get avatar from config
+
+        logger.info("🔧 Creating agent with MCP components:")
+        logger.info(f"🔧 tool_manager exists: {self.tool_manager is not None}")
+        logger.info(f"🔧 tool_executor exists: {self.tool_executor is not None}")
+        logger.info(
+            f"🔧 mcp_prompt length: {len(self.mcp_prompt) if self.mcp_prompt else 0}"
+        )
 
         try:
             self.agent_engine = AgentFactory.create_agent(
@@ -1019,6 +1113,15 @@ class ServiceContext:
 
             logger.debug(f"Agent choice: {agent_config.conversation_agent_choice}")
             logger.debug(f"System prompt: {system_prompt}")
+
+            # Warm up models to ensure they are loaded in LM Studio
+            try:
+                warmup = getattr(self.agent_engine, "warmup_llms", None)
+                if warmup and callable(warmup):
+                    await warmup()
+                    logger.info("🚀 LLM warmup completed for chat and memory models.")
+            except Exception as e:
+                logger.debug(f"LLM warmup skipped: {e}")
 
             # Save the current configuration
             self.character_config.agent_config = agent_config
@@ -1083,6 +1186,19 @@ class ServiceContext:
                 }
         except Exception:
             twitch_cfg = {}
+
+        # Minimal fallback to environment variables if fields are empty
+        try:
+            import os
+
+            if not twitch_cfg.get("channel_name"):
+                twitch_cfg["channel_name"] = os.getenv("TWITCH_CHANNEL_NAME", "")
+            if not twitch_cfg.get("app_id"):
+                twitch_cfg["app_id"] = os.getenv("TWITCH_APP_ID", "")
+            if not twitch_cfg.get("app_secret"):
+                twitch_cfg["app_secret"] = os.getenv("TWITCH_APP_SECRET", "")
+        except Exception:
+            pass
 
         if not twitch_cfg.get("enabled", False):
             logger.info(t("twitch.disabled"))
@@ -1224,11 +1340,56 @@ class ServiceContext:
             # // DEBUG: [FIXED] Assign request_id for Twitch flow | Ref: 5
             rid = str(uuid4())
             set_request_id(rid)
+
+            # Basic moderation: length and simple per-user rate limiting
+            try:
+                max_len = int(
+                    getattr(self.system_config.twitch_config, "max_message_length", 300)
+                )
+            except Exception:
+                max_len = 300
+            text = message.message or ""
+            if len(text) > max_len:
+                logger.info(
+                    f"[twitch:moderation] drop overlong message from {message.user} (len={len(text)}>{max_len})"
+                )
+                return
+            # Suppress bursts: drop if same user sends another message within 1.0s
+            try:
+                import time as _time
+
+                now = _time.monotonic()
+                last = float(self.user_mood.get(f"_last_ts:{message.user}", 0.0) or 0.0)
+                if now - last < 1.0:
+                    logger.debug(
+                        f"[twitch:moderation] suppress burst from {message.user} ({now - last:.3f}s)"
+                    )
+                    return
+                self.user_mood[f"_last_ts:{message.user}"] = now
+            except Exception:
+                pass
+
             # Standardized inbound log for Twitch
             chan = f"#{message.channel}" if message.channel else ""
             logger.info(
                 f"[twitch:{message.user}]{' ' + chan if chan else ''} {message.message[:200]}"
             )
+
+            # Update Relationships: ensure and touch Twitch user
+            try:
+                from .vtuber_memory.relationships import RelationshipsDB
+
+                user_id = f"Twitch:{message.user}" if message.user else "Twitch:unknown"
+                db = RelationshipsDB(
+                    getattr(
+                        self.system_config,
+                        "relationships_db_path",
+                        "cache/relationships.sqlite3",
+                    )
+                )
+                db.ensure_and_touch(user_id=user_id, username=message.user)
+            except Exception:
+                pass
 
             # Broadcast Twitch message to frontend for visual separation
             if self.send_text:
@@ -1324,71 +1485,6 @@ class ServiceContext:
             logger.error(t("twitch.agent_processing_error", error=str(e)))
 
     # ==== utils
-
-    async def construct_system_prompt(self, persona_prompt: str) -> str:
-        """
-        Append tool prompts to persona prompt.
-
-        Parameters:
-        - persona_prompt (str): The persona prompt.
-
-        Returns:
-        - str: The system prompt with all tool prompts appended.
-        """
-        # If config specifies a persona prompt file name, load it
-        try:
-            persona_name = str(
-                getattr(self.character_config, "persona_prompt_name", "") or ""
-            )
-        except Exception:
-            persona_name = ""
-
-        if persona_name:
-            try:
-                file_persona = prompt_loader.load_persona(persona_name)
-                if file_persona:
-                    persona_prompt = file_persona
-            except Exception as e:
-                logger.warning(f"Failed to load persona prompt '{persona_name}': {e}")
-
-        logger.debug(f"constructing persona_prompt: '''{persona_prompt}'''")
-
-        for prompt_name, prompt_file in self.system_config.tool_prompts.items():
-            if (
-                prompt_name == "group_conversation_prompt"
-                or prompt_name == "proactive_speak_prompt"
-            ):
-                continue
-
-            prompt_content = prompt_loader.load_util(prompt_file)
-
-            if prompt_name == "live2d_expression_prompt":
-                prompt_content = prompt_content.replace(
-                    "[<insert_emomap_keys>]", self.live2d_model.emo_str
-                )
-
-            if prompt_name == "mcp_prompt":
-                continue
-
-            persona_prompt += prompt_content
-
-        # Add grounding/verification guardrails for tool usage to avoid personal attributions
-        persona_prompt += (
-            "\n\nFACTUALITY AND TOOL-USAGE RULES\n"
-            "- When answering questions that rely on external information (e.g., web search), base factual statements strictly on tool outputs you received in this session.\n"
-            "- Cite at least the domain names of sources you used (e.g., [youtube.com], [fandom.com]) when presenting facts.\n"
-            "- If the available tool outputs do not confirm a detail, say you don't know rather than inferring.\n"
-            "- Do not invent or assume personal details about the user, the streamer, or creators. Never attribute content to the current user unless the tool output explicitly states it.\n"
-            "- Prefer concise, neutral summaries grounded in the provided tool content.\n"
-            "- Never fabricate events about named people (e.g., Ирина, Lizard). If you have no memory confirming an event, do not claim it happened.\n"
-            "- Avoid repeating yourself. If you have already said a sentence this turn, express a new thought or end the message.\n"
-            "- Keep replies short (<= 3 sentences).\n"
-        )
-
-        logger.debug("\n === System Prompt ===")
-        logger.debug(persona_prompt)
-
-        return persona_prompt
 
     async def handle_config_switch(
         self,
@@ -1502,8 +1598,94 @@ class ServiceContext:
         """Hook to call when a stream/session ends to consolidate memory immediately."""
         try:
             await self.trigger_memory_consolidation(reason="stream_end")
+            # Deep consolidation every N streams
+            try:
+                # maintain stream counter in system_config at runtime
+                n_every = int(
+                    getattr(self.system_config, "deep_consolidation_every_n_streams", 5)
+                    or 5
+                )
+                prev = int(getattr(self.system_config, "_streams_counter", 0) or 0) + 1
+                setattr(self.system_config, "_streams_counter", prev)
+                if n_every > 0 and (prev % n_every == 0):
+                    await self._deep_consolidation()
+            except Exception:
+                pass
         except Exception as e:
             logger.debug(f"stream_end consolidation skipped: {e}")
+
+    async def _deep_consolidation(self) -> None:
+        """Perform deep consolidation on LTM: prune old/low-importance and reinject fresh summaries."""
+        try:
+            mem = self.vtuber_memory_service or self.memory_service
+            if not (self.agent_engine and mem and getattr(mem, "enabled", False)):
+                return
+            # 1) Prune LTM with conservative thresholds
+            import time
+
+            now = int(time.time())
+            max_age = now - 30 * 24 * 3600  # 30 days
+            mem.prune_ltm(
+                conf_uid=self.character_config.conf_uid,
+                max_age_ts=max_age,
+                max_importance=0.25,
+            )
+            # 2) Re-extract key facts from recent conversation window and add to LTM
+            from .chat_history_manager import get_history
+
+            msgs = (
+                get_history(self.character_config.conf_uid, self.history_uid)
+                if self.history_uid
+                else []
+            )
+            if not msgs:
+                return
+            recent_texts: list[str] = []
+            for m in msgs[-200:]:
+                c = (m.get("content") or "").strip()
+                if c:
+                    recent_texts.append(c)
+            if not recent_texts:
+                return
+            try:
+                summary = await self.agent_engine.summarize_texts(recent_texts)  # type: ignore[attr-defined]
+            except Exception:
+                summary = {}
+            if not summary:
+                return
+            entries: list[dict] = []
+
+            def push_all(arr, kind):
+                for x in arr or []:
+                    text = (x if isinstance(x, str) else x.get("text")) if x else None
+                    if not text:
+                        continue
+                    # Clip overlong facts for LTM hygiene
+                    text = text[:200]
+                    importance = (
+                        float(x.get("importance", 0.7)) if isinstance(x, dict) else 0.7
+                    )
+                    entries.append(
+                        {
+                            "text": text,
+                            "kind": kind,
+                            "importance": importance,
+                            "tags": ["deep"],
+                        }
+                    )
+
+            push_all(summary.get("key_facts"), "KeyFacts")
+            push_all(summary.get("facts_about_user"), "FactsAboutUser")
+            if entries:
+                mem.add_facts_with_meta(
+                    entries,
+                    self.character_config.conf_uid,
+                    self.history_uid or "",
+                    default_kind="chat",
+                )
+            logger.info("Deep consolidation completed ✅")
+        except Exception as e:
+            logger.debug(f"deep_consolidation failed: {e}")
 
 
 def deep_merge(dict1, dict2):

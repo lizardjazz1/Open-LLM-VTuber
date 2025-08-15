@@ -53,6 +53,7 @@ class AsyncLLM(StatelessLLMInterface):
         presence_penalty: float = 0.0,
         stop: list[str] | None = None,
         seed: int | None = None,
+        fallback_model: str | None = None,
     ):
         """
         Initializes an instance of the `AsyncLLM` class.
@@ -76,6 +77,7 @@ class AsyncLLM(StatelessLLMInterface):
         self.presence_penalty = presence_penalty
         self.stop = stop
         self.seed = seed
+        self.fallback_model = fallback_model
         self.client = AsyncOpenAI(
             base_url=base_url,
             organization=organization_id,
@@ -83,6 +85,20 @@ class AsyncLLM(StatelessLLMInterface):
             api_key=llm_api_key,
         )
         self.support_tools = True
+
+        # Heuristic: LM Studio OpenAI-compatible server often misbehaves with tool_calls in stream
+        # Disable tools by default for LM Studio endpoints
+        try:
+            if (
+                "127.0.0.1:1234" in (base_url or "")
+                or "lmstudio" in (base_url or "").lower()
+            ):
+                self.support_tools = False
+                logger.warning(
+                    "LM Studio detected; disabling tools for streaming compatibility."
+                )
+        except Exception:
+            pass
 
         # Инициализируем Harmony если доступен и включен
         if self.use_harmony:
@@ -127,12 +143,6 @@ class AsyncLLM(StatelessLLMInterface):
         accumulated_tool_calls = {}
         in_tool_call = False
 
-        # Harmony parsing variables
-        if self.use_harmony:
-            accumulated_response = ""
-            in_final_channel = False
-            final_content = ""
-
         if DEBUG_LLM:
             try:
                 logger.bind(dst="llm").log(
@@ -140,6 +150,7 @@ class AsyncLLM(StatelessLLMInterface):
                     (
                         f"LLM OUT (openai-compatible): model={self.model}, "
                         f"params={{'temperature': {self.temperature}, 'top_p': {self.top_p}, 'max_tokens': {self.max_tokens}}}, "
+                        f"system_prompt={system}, "
                         f"messages={messages}"
                     ),
                 )
@@ -148,6 +159,7 @@ class AsyncLLM(StatelessLLMInterface):
         try:
             t_start = time.perf_counter()
             t_first_chunk: float | None = None
+            has_yielded_text: bool = False
             # If system prompt is provided, add it to the messages
             messages_with_system = messages
             if system:
@@ -155,7 +167,9 @@ class AsyncLLM(StatelessLLMInterface):
                     {"role": "system", "content": system},
                     *messages,
                 ]
-            logger.debug(f"Messages: {messages_with_system}")
+            logger.debug(
+                f"Full request to LLM: messages_with_system={messages_with_system}"
+            )
 
             available_tools = tools if self.support_tools else NOT_GIVEN
 
@@ -194,6 +208,7 @@ class AsyncLLM(StatelessLLMInterface):
                             "model": self.model,
                         }
                     )
+
                 if self.support_tools:
                     has_tool_calls = (
                         hasattr(chunk.choices[0].delta, "tool_calls")
@@ -257,6 +272,9 @@ class AsyncLLM(StatelessLLMInterface):
                             for tool_data in accumulated_tool_calls.values()
                         ]
 
+                        logger.info(
+                            f"Yielding complete tool calls ({len(complete_tool_calls)}) to agent"
+                        )
                         yield complete_tool_calls
                         accumulated_tool_calls = {}  # Reset for potential future tool calls
 
@@ -268,35 +286,18 @@ class AsyncLLM(StatelessLLMInterface):
                     chunk.choices[0].delta.content = ""
 
                 content = chunk.choices[0].delta.content
-
-                # Harmony parsing logic
-                if self.use_harmony and content:
-                    accumulated_response += content
-
-                    # Check for final channel markers
-                    if "<|channel|>final<|message|>" in accumulated_response:
-                        in_final_channel = True
-                        # Extract content after the final channel marker
-                        final_start = accumulated_response.find(
-                            "<|channel|>final<|message|>"
-                        )
-                        if final_start != -1:
-                            final_content = accumulated_response[
-                                final_start + len("<|channel|>final<|message|>") :
-                            ]
-                            # Remove any remaining Harmony tokens
-                            final_content = (
-                                final_content.replace("<|end|>", "")
-                                .replace("<|start|>", "")
-                                .replace("assistant", "")
-                                .replace("<|channel|>final<|message|>", "")
+                if content:
+                    # Log chunks only in DEBUG mode to reduce noise
+                    if DEBUG_LLM:
+                        logger.debug(f"🔥 LLM yielding chunk: {repr(content)}")
+                        try:
+                            logger.bind(dst="llm").log(
+                                "DEBUG",
+                                f"LLM stream content chunk: {repr(content)}",
                             )
-                            yield final_content
-                    elif in_final_channel:
-                        # We're in the final channel, yield the content
-                        yield content
-                else:
-                    # Non-Harmony mode or no content
+                        except Exception:
+                            pass
+                    has_yielded_text = True
                     yield content
 
             # If stream ends while still in a tool call, make sure to yield the tool call
@@ -310,6 +311,59 @@ class AsyncLLM(StatelessLLMInterface):
                 ]
 
                 yield complete_tool_calls
+
+            # Fallback: if no text chunks were yielded, try a non-stream completion and output its content
+            if not has_yielded_text:
+                try:
+                    logger.warning(
+                        "No text chunks yielded during stream; attempting non-stream fallback."
+                    )
+                    completion = await self.client.chat.completions.create(
+                        messages=messages_with_system,
+                        model=self.model,
+                        stream=False,
+                        temperature=self.temperature,
+                        max_tokens=getattr(self, "max_tokens", 150),
+                        top_p=getattr(self, "top_p", 1.0),
+                        frequency_penalty=getattr(self, "frequency_penalty", 0.0),
+                        presence_penalty=getattr(self, "presence_penalty", 0.0),
+                        stop=getattr(self, "stop", None)
+                        if getattr(self, "stop", None)
+                        else NOT_GIVEN,
+                        seed=getattr(self, "seed", None)
+                        if getattr(self, "seed", None) is not None
+                        else NOT_GIVEN,
+                        tools=available_tools,
+                    )
+                    final_text = ""
+                    try:
+                        final_text = completion.choices[0].message.content or ""
+                    except Exception:
+                        final_text = ""
+                    # Try reasoning_content if provider returned only reasoning
+                    if not final_text:
+                        try:
+                            rc = getattr(
+                                completion.choices[0].message, "reasoning_content", None
+                            )
+                            if isinstance(rc, str) and rc.strip():
+                                final_text = rc
+                                logger.info(
+                                    "✅ Non-stream fallback used reasoning_content."
+                                )
+                        except Exception:
+                            pass
+                    if final_text:
+                        logger.info(
+                            f"✅ Non-stream fallback produced content (len={len(final_text)})."
+                        )
+                        yield final_text
+                    else:
+                        logger.warning(
+                            "Non-stream fallback returned empty content as well."
+                        )
+                except Exception as e:
+                    logger.error(f"Non-stream fallback failed: {e}")
 
         except APIConnectionError as e:
             logger.error(
@@ -329,19 +383,105 @@ class AsyncLLM(StatelessLLMInterface):
                 logger.warning(
                     f"{self.model} does not support tools. Disabling tool support."
                 )
-                # Добавляем детальное логирование инструментов
-                if tools and tools != NOT_GIVEN:
-                    tool_names = [
-                        tool.get("function", {}).get("name", "unknown")
-                        for tool in tools
-                    ]
-                    logger.warning(
-                        f"Attempted to use tools: {tool_names} with model {self.model}"
-                    )
-                logger.warning(f"Full API error message: {str(e)}")
                 yield "__API_NOT_SUPPORT_TOOLS__"
-                # Не выходим из функции, позволяем обработчику в агенте обработать сигнал
-                # return
+                return
+            # Auto-retry for LM Studio when model id is wrong but suggestions are provided
+            try:
+                err_text = str(e)
+                if (
+                    "model_not_found" in err_text
+                    or 'Model "' in err_text
+                    and "not found" in err_text
+                ):
+                    # Heuristic: extract suggested models and prefer one matching the family
+                    suggestions: list[str] = []
+                    try:
+                        if "Your models:" in err_text:
+                            tail = err_text.split("Your models:")[-1]
+                            for line in tail.splitlines():
+                                line = line.strip().strip("'\" ")
+                                if line and all(
+                                    k not in line.lower()
+                                    for k in ["error", "param", "code"]
+                                ):
+                                    suggestions.append(line)
+                    except Exception:
+                        suggestions = []
+                    alt_model = None
+                    # Prefer same family replacement (e.g., qwen3-30b-...)
+                    fam = None
+                    try:
+                        fam = (
+                            self.model.split("/")[-1].split(":")[0]
+                            if self.model
+                            else None
+                        )
+                    except Exception:
+                        fam = None
+                    if fam:
+                        for s in suggestions:
+                            if s.startswith(fam):
+                                alt_model = s
+                                break
+                    # Fallback to configured model from YAML if provided
+                    if not alt_model and self.fallback_model:
+                        alt_model = self.fallback_model
+                    if alt_model:
+                        logger.warning(
+                            f"Model '{self.model}' not found. Retrying once with '{alt_model}'."
+                        )
+                        try:
+                            completion = await self.client.chat.completions.create(
+                                messages=[{"role": "system", "content": system}]
+                                + messages
+                                if system
+                                else messages,
+                                model=alt_model,
+                                stream=False,
+                                temperature=self.temperature,
+                                max_tokens=getattr(self, "max_tokens", 150),
+                                top_p=getattr(self, "top_p", 1.0),
+                                frequency_penalty=getattr(
+                                    self, "frequency_penalty", 0.0
+                                ),
+                                presence_penalty=getattr(self, "presence_penalty", 0.0),
+                                stop=getattr(self, "stop", None)
+                                if getattr(self, "stop", None)
+                                else NOT_GIVEN,
+                                seed=getattr(self, "seed", None)
+                                if getattr(self, "seed", None) is not None
+                                else NOT_GIVEN,
+                                tools=NOT_GIVEN,
+                            )
+                            text = ""
+                            try:
+                                text = completion.choices[0].message.content or ""
+                            except Exception:
+                                text = ""
+                            if not text:
+                                try:
+                                    rc = getattr(
+                                        completion.choices[0].message,
+                                        "reasoning_content",
+                                        None,
+                                    )
+                                    if isinstance(rc, str) and rc.strip():
+                                        text = rc
+                                except Exception:
+                                    pass
+                            if text:
+                                yield text
+                                return
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+            logger.error(f"LLM API: Error occurred: {e}")
+            logger.info(f"Base URL: {self.base_url}")
+            logger.info(f"Model: {self.model}")
+            logger.info(f"Messages: {messages}")
+            logger.info(f"temperature: {self.temperature}")
+            yield "Error calling the chat endpoint: Error occurred while generating response. See the logs for details."
 
         finally:
             # make sure the stream is properly closed

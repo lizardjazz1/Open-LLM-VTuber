@@ -14,6 +14,9 @@ class SileroVADConfig(I18nMixin):
     required_hits: int = Field(..., alias="required_hits")  # 3 * (0.032) = 0.1s
     required_misses: int = Field(..., alias="required_misses")  # 24 * (0.032) = 0.8s
     smoothing_window: int = Field(..., alias="smoothing_window")  # 5
+    # New: duration guards for ASR triggering (milliseconds)
+    min_speech_ms: int = Field(250, alias="min_speech_ms")
+    max_speech_ms: int = Field(12000, alias="max_speech_ms")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "orig_sr": Description(i18n_key="original_audio_sample_rate"),
@@ -27,6 +30,12 @@ class SileroVADConfig(I18nMixin):
             i18n_key="number_of_consecutive_misses_required_to_consider_silence"
         ),
         "smoothing_window": Description(i18n_key="smoothing_window_size_for_vad"),
+        "min_speech_ms": Description(
+            i18n_key="minimum_speech_duration_ms_to_trigger_asr"
+        ),
+        "max_speech_ms": Description(
+            i18n_key="maximum_speech_duration_ms_before_truncation"
+        ),
     }
 
 

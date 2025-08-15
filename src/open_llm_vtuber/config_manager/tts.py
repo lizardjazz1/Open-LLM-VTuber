@@ -39,6 +39,11 @@ class EdgeTTSConfig(I18nMixin):
     rate: str = Field("+0%", alias="rate")
     volume: str = Field("+0%", alias="volume")
     pitch: str = Field("+0Hz", alias="pitch")
+    # New tunables for reliability/offline fallback
+    timeout_ms: int = Field(15000, alias="timeout_ms")
+    max_retries: int = Field(1, alias="max_retries")
+    enable_fallback: bool = Field(True, alias="enable_fallback")
+    piper_model_path: Optional[str] = Field(None, alias="piper_model_path")
 
     DESCRIPTIONS: ClassVar[Dict[str, Description]] = {
         "voice": Description(
@@ -50,6 +55,19 @@ class EdgeTTSConfig(I18nMixin):
         "volume": Description(i18n_key="volume_adjustment_eg_10_10_0"),
         "pitch": Description(
             i18n_key="pitch_adjustment_in_hz_eg_10hz_10hz_0hz_limited_to_50hz_to_50hz"
+        ),
+        # New fields
+        "timeout_ms": Description(
+            i18n_key="edge_tts_request_timeout_in_milliseconds_default_15000"
+        ),
+        "max_retries": Description(
+            i18n_key="edge_tts_max_retries_on_failure_default_1"
+        ),
+        "enable_fallback": Description(
+            i18n_key="enable_offline_piper_fallback_if_edge_tts_fails"
+        ),
+        "piper_model_path": Description(
+            i18n_key="filesystem_path_to_piper_onnx_model_for_offline_tts"
         ),
     }
 

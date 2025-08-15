@@ -21,6 +21,8 @@ from .routes import init_twitch_routes
 # // DEBUG: [FIXED] Include /logs endpoint | Ref: 4
 from .routes import init_log_routes
 from .routes.admin_memory_routes import router as admin_memory_router
+from .routes.admin_bench_routes import router as admin_bench_router
+from .routes.admin_status_routes import router as admin_status_router
 from .service_context import ServiceContext
 from .config_manager.utils import Config
 
@@ -107,6 +109,14 @@ class WebSocketServer:
             allow_headers=["*"],
         )
 
+        # Install request-id propagation middleware for HTTP routes
+        try:
+            from .middleware.request_id import install_request_id_middleware
+
+            install_request_id_middleware(self.app)
+        except Exception:
+            pass
+
         # Include routes, passing the context instance
         # The context will be populated during the initialize step
         self.app.include_router(
@@ -115,13 +125,23 @@ class WebSocketServer:
         self.app.include_router(
             init_webtool_routes(default_context_cache=self.default_context_cache),
         )
-        # // DEBUG: [FIXED] Mount /logs route | Ref: 4
+
+        # Liveness probe
+        @self.app.get("/healthz")
+        async def _healthz():  # type: ignore[func-returns-value]
+            return {"ok": True}
+
+        # Enable client log ingestion (token optional per config flags)
         self.app.include_router(init_log_routes(config=config, limiter=limiter))
         self.app.include_router(
             init_twitch_routes(default_context_cache=self.default_context_cache),
         )
         # Admin memory and relationship management endpoints
         self.app.include_router(admin_memory_router)
+        # Admin benchmarking endpoints
+        self.app.include_router(admin_bench_router)
+        # Admin status endpoints
+        self.app.include_router(admin_status_router)
 
         # Install WS guard middleware: only explicit WS endpoints are allowed
         try:
@@ -218,6 +238,11 @@ class WebSocketServer:
         """Asynchronously load the service context from config.
         Calling this function is needed if default_context_cache was not provided to the constructor."""
         await self.default_context_cache.load_from_config(self.config)
+
+        # Set global context for admin routes
+        from .routes.admin_memory_routes import set_global_context
+
+        set_global_context(self.default_context_cache)
 
     @staticmethod
     def clean_cache():

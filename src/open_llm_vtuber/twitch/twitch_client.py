@@ -3,6 +3,8 @@ Twitch integration module for Open-LLM-VTuber
 Handles Twitch chat connection, message processing, and integration with the main system.
 """
 
+from __future__ import annotations
+
 import asyncio
 
 # // DEBUG: [FIXED] Use loguru instead of stdlib logging | Ref: 3
@@ -36,6 +38,7 @@ from twitchAPI.twitch import Twitch
 from twitchAPI.chat import Chat, EventData, ChatMessage, ChatSub, ChatCommand
 
 from ..i18n import t
+from ..logging_utils import mask_secrets
 
 
 @dataclass
@@ -129,8 +132,40 @@ class TwitchClient:
             return True
 
         except Exception as e:
+            # Provide detailed diagnostics without leaking secrets
+            msg = str(e)
+            masked = mask_secrets(msg) if isinstance(msg, (str, dict)) else msg
+            status = None
+            url = None
+            body = None
+            try:
+                # aiohttp.ClientResponseError or similar
+                resp = getattr(e, "response", None)
+                if resp is not None:
+                    status = getattr(resp, "status", None)
+                    try:
+                        url_obj = getattr(
+                            getattr(resp, "request_info", None), "url", None
+                        )
+                        if url_obj:
+                            url = str(url_obj).split("?")[0]
+                    except Exception:
+                        pass
+                    try:
+                        body_text = await resp.text()
+                        body = mask_secrets(body_text)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
             logger.bind(component="twitch_api").error(
-                t("twitch.init_error", error=str(e))
+                {
+                    "message": t("twitch.init_error", error=masked),
+                    "http_status": status,
+                    "url": url,
+                    "body": body,
+                }
             )
             return False
 

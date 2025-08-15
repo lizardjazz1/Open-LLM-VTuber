@@ -27,7 +27,8 @@ from .conversations.conversation_handler import (
     handle_group_interrupt,
     handle_individual_interrupt,
 )
-from .memory.memory_service import MemoryService
+
+# from .memory.memory_service import MemoryService  # Legacy import (deprecated in favor of vtuber_memory_service)
 from .debug_settings import ensure_log_sinks
 
 # // DEBUG: [FIXED] Request ID utilities | Ref: 5
@@ -78,6 +79,8 @@ class WebSocketHandler:
         self.current_conversation_tasks: Dict[str, Optional[asyncio.Task]] = {}
         self.default_context_cache = default_context_cache
         self.received_data_buffers: Dict[str, np.ndarray] = {}
+        # Per-client locks to guard buffer updates (avoid races between VAD and triggers)
+        self._buffer_locks: Dict[str, asyncio.Lock] = {}
         # Track frontend init acks to ensure Live2D/config is delivered
         self._init_ack: Dict[str, bool] = {}
 
@@ -126,6 +129,8 @@ class WebSocketHandler:
             "memory-consolidate-history": self._handle_memory_consolidate_history,
             "import-history": self._handle_import_history,
             "memory-kinds-info": self._handle_memory_kinds_info,
+            # Twitch helpers
+            "twitch-fetch": self._handle_twitch_fetch,
             # Mood controls
             "mood-list": self._handle_mood_list,
             "mood-reset": self._handle_mood_reset,
@@ -162,6 +167,9 @@ class WebSocketHandler:
 
             # Mark init as not acked yet and schedule reliable re-sends
             self._init_ack[client_uid] = False
+            # Initialize client buffer and lock
+            self.received_data_buffers[client_uid] = np.array([])
+            self._buffer_locks[client_uid] = asyncio.Lock()
             asyncio.create_task(
                 self._resend_init_until_ack(
                     websocket, client_uid, session_service_context
@@ -320,10 +328,54 @@ class WebSocketHandler:
         except Exception:
             pass
 
+        # Send current Twitch status and a short backlog of recent messages to this client
+        try:
+            tc = getattr(self.default_context_cache, "twitch_client", None)
+            if tc:
+                try:
+                    status = tc.get_connection_status()
+                    await websocket.send_json({"type": "twitch-status", **status})
+                except Exception:
+                    pass
+                try:
+                    recent = tc.get_recent_messages() or []
+                    # send last up to 20 messages to populate UI
+                    for m in recent[-20:]:
+                        try:
+                            await websocket.send_json(
+                                {
+                                    "type": "twitch-message",
+                                    "user": getattr(m, "user", None),
+                                    "text": getattr(m, "message", None),
+                                    "timestamp": getattr(
+                                        m, "timestamp", None
+                                    ).isoformat()
+                                    if getattr(m, "timestamp", None)
+                                    else None,
+                                    "channel": getattr(m, "channel", None),
+                                }
+                            )
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     async def _init_service_context(
         self, send_text: Callable, client_uid: str
     ) -> ServiceContext:
         """Initialize service context for a new session by cloning the default context"""
+
+        # Wrap send_text to broadcast to all connected clients (not just last one)
+        async def _broadcast_send_text(payload: str) -> None:
+            for ws in list(self.client_connections.values()):
+                try:
+                    await ws.send_text(payload)
+                except Exception:
+                    # ignore send failures for individual sockets
+                    pass
+
         session_service_context = ServiceContext()
         await session_service_context.load_cache(
             config=self.default_context_cache.config.model_copy(deep=True),
@@ -341,13 +393,13 @@ class WebSocketHandler:
             translate_engine=self.default_context_cache.translate_engine,
             mcp_server_registery=self.default_context_cache.mcp_server_registery,
             tool_adapter=self.default_context_cache.tool_adapter,
-            send_text=send_text,
+            send_text=_broadcast_send_text,
             client_uid=client_uid,
         )
         # Also wire the default context to this websocket so shared modules (e.g., Twitch)
         # can emit to the active client and process via the default agent engine.
-        # Last connected client wins; adequate for single-client usage.
-        self.default_context_cache.send_text = send_text
+        # Now use broadcasting so all connected clients receive events.
+        self.default_context_cache.send_text = _broadcast_send_text
         self.default_context_cache.client_uid = client_uid
         return session_service_context
 
@@ -492,12 +544,12 @@ class WebSocketHandler:
                     else:
                         ctx.memory_kinds = None
                     out["kinds"] = ctx.memory_kinds
-                # lazy init service if toggled on
-                if ctx.memory_enabled and (ctx.memory_service is None):
-                    try:
-                        ctx.memory_service = MemoryService(enabled=True)
-                    except Exception as e:
-                        logger.warning(f"MemoryService init failed on update: {e}")
+                # lazy init service if toggled on (legacy)
+                # if ctx.memory_enabled and (ctx.memory_service is None):
+                #     try:
+                #         ctx.memory_service = MemoryService(enabled=True)
+                #     except Exception as e:
+                #         logger.warning(f"MemoryService init failed on update: {e}")
                 return out
 
             sess = _apply(self.client_contexts.get(client_uid))
@@ -524,10 +576,16 @@ class WebSocketHandler:
             conf_uid = (
                 ctx.character_config.conf_uid if (ctx and scope != "all") else None
             )
+            # Prefer new vtuber memory service, fallback to legacy if needed
             svc = (
-                ctx.memory_service if ctx else None
-            ) or self.default_context_cache.memory_service
-            if svc and svc.enabled:
+                (ctx.vtuber_memory_service if ctx else None)
+                or (self.default_context_cache.vtuber_memory_service)
+                or (
+                    (ctx.memory_service if ctx else None)
+                    or self.default_context_cache.memory_service
+                )
+            )
+            if svc and getattr(svc, "enabled", False):
                 ok = svc.clear(conf_uid=conf_uid)
             else:
                 ok = 0
@@ -553,11 +611,17 @@ class WebSocketHandler:
             since_ts = data.get("since_ts")
             until_ts = data.get("until_ts")
             ctx = self.client_contexts.get(client_uid)
+            # Prefer new vtuber memory service, fallback to legacy if needed
             svc = (
-                ctx.memory_service if ctx else None
-            ) or self.default_context_cache.memory_service
+                (ctx.vtuber_memory_service if ctx else None)
+                or (self.default_context_cache.vtuber_memory_service)
+                or (
+                    (ctx.memory_service if ctx else None)
+                    or self.default_context_cache.memory_service
+                )
+            )
             conf_uid = ctx.character_config.conf_uid if ctx else None
-            if not (svc and svc.enabled and query):
+            if not (svc and getattr(svc, "enabled", False) and query):
                 await websocket.send_json({"type": "memory-search-result", "hits": []})
                 return
             hits = svc.search(
@@ -591,11 +655,17 @@ class WebSocketHandler:
             since_ts = data.get("since_ts")
             until_ts = data.get("until_ts")
             ctx = self.client_contexts.get(client_uid)
+            # Prefer new vtuber memory service, fallback to legacy if needed
             svc = (
-                ctx.memory_service if ctx else None
-            ) or self.default_context_cache.memory_service
+                (ctx.vtuber_memory_service if ctx else None)
+                or (self.default_context_cache.vtuber_memory_service)
+                or (
+                    (ctx.memory_service if ctx else None)
+                    or self.default_context_cache.memory_service
+                )
+            )
             conf_uid = ctx.character_config.conf_uid if ctx else None
-            if not (svc and svc.enabled and query):
+            if not (svc and getattr(svc, "enabled", False) and query):
                 await websocket.send_json(
                     {"type": "memory-search-grouped-result", "groups": {}}
                 )
@@ -652,11 +722,17 @@ class WebSocketHandler:
             max_age_ts = data.get("max_age_ts")
             max_importance = data.get("max_importance")
             ctx = self.client_contexts.get(client_uid)
+            # Prefer new vtuber memory service, fallback to legacy if needed
             svc = (
-                ctx.memory_service if ctx else None
-            ) or self.default_context_cache.memory_service
+                (ctx.vtuber_memory_service if ctx else None)
+                or (self.default_context_cache.vtuber_memory_service)
+                or (
+                    (ctx.memory_service if ctx else None)
+                    or self.default_context_cache.memory_service
+                )
+            )
             conf_uid = ctx.character_config.conf_uid if ctx else None
-            if not (svc and svc.enabled):
+            if not (svc and getattr(svc, "enabled", False)):
                 await websocket.send_json({"type": "memory-prune-result", "ok": False})
                 return
             ok = svc.prune(
@@ -680,13 +756,19 @@ class WebSocketHandler:
             limit = int(data.get("limit", 50))
             kind = data.get("kind")
             ctx = self.client_contexts.get(client_uid)
+            # Prefer new vtuber memory service, fallback to legacy if needed
             svc = (
-                ctx.memory_service if ctx else None
-            ) or self.default_context_cache.memory_service
+                (ctx.vtuber_memory_service if ctx else None)
+                or (self.default_context_cache.vtuber_memory_service)
+                or (
+                    (ctx.memory_service if ctx else None)
+                    or self.default_context_cache.memory_service
+                )
+            )
             conf_uid = ctx.character_config.conf_uid if ctx else None
             items = (
                 svc.list(conf_uid=conf_uid, limit=max(1, min(200, limit)), kind=kind)
-                if (svc and svc.enabled)
+                if (svc and getattr(svc, "enabled", False))
                 else []
             )
             await websocket.send_json({"type": "memory-list-result", "items": items})
@@ -704,38 +786,46 @@ class WebSocketHandler:
             kinds = data.get("kinds")
             limit_per_kind = int(data.get("limit_per_kind", 20))
             ctx = self.client_contexts.get(client_uid)
+            # Prefer new vtuber memory service, fallback to legacy if needed
             svc = (
-                ctx.memory_service if ctx else None
-            ) or self.default_context_cache.memory_service
+                (ctx.vtuber_memory_service if ctx else None)
+                or (self.default_context_cache.vtuber_memory_service)
+                or (
+                    (ctx.memory_service if ctx else None)
+                    or self.default_context_cache.memory_service
+                )
+            )
             conf_uid = ctx.character_config.conf_uid if ctx else None
-            if not (svc and svc.enabled):
+            if not (svc and getattr(svc, "enabled", False)):
                 await websocket.send_json(
                     {"type": "memory-list-grouped-result", "groups": {}}
                 )
                 return
+            # If kinds explicitly provided -> fetch per-kind
             if isinstance(kinds, list) and kinds:
                 target_kinds = [str(k).strip() for k in kinds if str(k).strip()]
+                groups: Dict[str, List[dict]] = {}
+                for k in target_kinds:
+                    try:
+                        items = svc.list(
+                            conf_uid=conf_uid,
+                            limit=max(1, min(200, limit_per_kind)),
+                            kind=k,
+                        )
+                        groups[k] = items
+                    except Exception:
+                        groups[k] = []
             else:
-                target_kinds = [
-                    "FactsAboutUser",
-                    "PastEvents",
-                    "SelfBeliefs",
-                    "Objectives",
-                    "KeyFacts",
-                    "Emotions",
-                    "Mood",
-                ]
-            groups: Dict[str, List[dict]] = {}
-            for k in target_kinds:
-                try:
-                    items = svc.list(
-                        conf_uid=conf_uid,
-                        limit=max(1, min(200, limit_per_kind)),
-                        kind=k,
-                    )
-                    groups[k] = items
-                except Exception:
-                    groups[k] = []
+                # No kinds selected: show everything. Fetch a larger mixed list and group by metadata.kind
+                fetch_limit = max(1, min(1000, limit_per_kind * 10))
+                mixed = svc.list(conf_uid=conf_uid, limit=fetch_limit, kind=None)
+                groups = {}
+                for it in mixed:
+                    meta = it.get("metadata") or {}
+                    k = str(meta.get("kind") or "Other")
+                    arr = groups.setdefault(k, [])
+                    if len(arr) < limit_per_kind:
+                        arr.append(it)
             await websocket.send_json(
                 {"type": "memory-list-grouped-result", "groups": groups}
             )
@@ -743,6 +833,47 @@ class WebSocketHandler:
             logger.error(f"memory-list-grouped failed: {e}")
             await websocket.send_json(
                 {"type": "error", "message": f"Failed to list grouped memory: {str(e)}"}
+            )
+
+    async def _handle_twitch_fetch(
+        self, websocket: WebSocket, client_uid: str, data: dict
+    ) -> None:
+        """Send current Twitch status and a short backlog of recent messages to this client on demand."""
+        try:
+            tc = getattr(self.default_context_cache, "twitch_client", None)
+            if not tc:
+                await websocket.send_json(
+                    {"type": "twitch-status", "enabled": False, "connected": False}
+                )
+                return
+            try:
+                status = tc.get_connection_status()
+                await websocket.send_json({"type": "twitch-status", **status})
+            except Exception:
+                pass
+            try:
+                recent = tc.get_recent_messages() or []
+                for m in recent[-20:]:
+                    try:
+                        await websocket.send_json(
+                            {
+                                "type": "twitch-message",
+                                "user": getattr(m, "user", None),
+                                "text": getattr(m, "message", None),
+                                "timestamp": getattr(m, "timestamp", None).isoformat()
+                                if getattr(m, "timestamp", None)
+                                else None,
+                                "channel": getattr(m, "channel", None),
+                            }
+                        )
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        except Exception as e:
+            logger.error(f"twitch-fetch failed: {e}")
+            await websocket.send_json(
+                {"type": "error", "message": f"Failed to fetch twitch state: {str(e)}"}
             )
 
     async def _handle_memory_add(
@@ -757,10 +888,16 @@ class WebSocketHandler:
                 )
                 return
             ctx = self.client_contexts.get(client_uid)
+            # Prefer new vtuber memory service, fallback to legacy if needed
             svc = (
-                ctx.memory_service if ctx else None
-            ) or self.default_context_cache.memory_service
-            if not (svc and svc.enabled and ctx):
+                (ctx.vtuber_memory_service if ctx else None)
+                or (self.default_context_cache.vtuber_memory_service)
+                or (
+                    (ctx.memory_service if ctx else None)
+                    or self.default_context_cache.memory_service
+                )
+            )
+            if not (svc and getattr(svc, "enabled", False) and ctx):
                 await websocket.send_json({"type": "memory-add-result", "ok": False})
                 return
             # Normalize numeric fields
@@ -811,10 +948,16 @@ class WebSocketHandler:
                 )
                 return
             ctx = self.client_contexts.get(client_uid)
+            # Prefer new vtuber memory service, fallback to legacy if needed
             svc = (
-                ctx.memory_service if ctx else None
-            ) or self.default_context_cache.memory_service
-            if not (svc and svc.enabled):
+                (ctx.vtuber_memory_service if ctx else None)
+                or (self.default_context_cache.vtuber_memory_service)
+                or (
+                    (ctx.memory_service if ctx else None)
+                    or self.default_context_cache.memory_service
+                )
+            )
+            if not (svc and getattr(svc, "enabled", False)):
                 await websocket.send_json({"type": "memory-delete-result", "ok": False})
                 return
             deleted = svc.delete([str(i) for i in ids])
@@ -1455,14 +1598,27 @@ class WebSocketHandler:
         """Handle incoming audio data"""
         audio_data = data.get("audio", [])
         if audio_data:
-            before = len(self.received_data_buffers.get(client_uid, np.array([])))
-            self.received_data_buffers[client_uid] = np.append(
-                self.received_data_buffers[client_uid],
-                np.array(audio_data, dtype=np.float32),
-            )
-            after = len(self.received_data_buffers[client_uid])
-            logger.debug(
-                f"mic-audio-data appended: +{after - before} samples (total {after}) for {client_uid}"
+            t0 = asyncio.get_running_loop().time()
+            lock = self._buffer_locks.get(client_uid)
+            if not lock:
+                self._buffer_locks[client_uid] = asyncio.Lock()
+                lock = self._buffer_locks[client_uid]
+            async with lock:
+                before = len(self.received_data_buffers.get(client_uid, np.array([])))
+                self.received_data_buffers[client_uid] = np.append(
+                    self.received_data_buffers[client_uid],
+                    np.array(audio_data, dtype=np.float32),
+                )
+                after = len(self.received_data_buffers[client_uid])
+            dt_ms = int((asyncio.get_running_loop().time() - t0) * 1000)
+            logger.bind(component="vad").debug(
+                {
+                    "event": "buffer.append",
+                    "client_uid": client_uid,
+                    "added": after - before,
+                    "total": after,
+                    "latency_ms": dt_ms,
+                }
             )
 
     async def _handle_raw_audio_data(
@@ -1472,28 +1628,70 @@ class WebSocketHandler:
         context = self.client_contexts[client_uid]
         chunk = data.get("audio", [])
         if chunk:
+            t0 = asyncio.get_running_loop().time()
             for audio_bytes in context.vad_engine.detect_speech(chunk):
                 if audio_bytes == b"<|PAUSE|>":
+                    logger.bind(component="vad").info(
+                        {
+                            "event": "vad.pause",
+                            "client_uid": client_uid,
+                        }
+                    )
                     await websocket.send_text(
                         json.dumps({"type": "control", "text": "interrupt"})
                     )
                 elif audio_bytes == b"<|RESUME|>":
+                    logger.bind(component="vad").info(
+                        {
+                            "event": "vad.resume",
+                            "client_uid": client_uid,
+                        }
+                    )
                     pass
                 elif len(audio_bytes) > 1024:
                     # Detected audio activity (voice)
-                    self.received_data_buffers[client_uid] = np.append(
-                        self.received_data_buffers[client_uid],
-                        np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32),
+                    logger.bind(component="vad").info(
+                        {
+                            "event": "vad.voice",
+                            "client_uid": client_uid,
+                            "payload_size": len(audio_bytes),
+                        }
                     )
+                    lock = self._buffer_locks.get(client_uid)
+                    if not lock:
+                        self._buffer_locks[client_uid] = asyncio.Lock()
+                        lock = self._buffer_locks[client_uid]
+                    async with lock:
+                        self.received_data_buffers[client_uid] = np.append(
+                            self.received_data_buffers[client_uid],
+                            np.frombuffer(audio_bytes, dtype=np.int16).astype(
+                                np.float32
+                            ),
+                        )
                     await websocket.send_text(
                         json.dumps({"type": "control", "text": "mic-audio-end"})
                     )
+            logger.bind(component="vad").debug(
+                {
+                    "event": "vad.chunk_processed",
+                    "client_uid": client_uid,
+                    "latency_ms": int((asyncio.get_running_loop().time() - t0) * 1000),
+                }
+            )
 
     async def _handle_conversation_trigger(
         self, websocket: WebSocket, client_uid: str, data: WSMessage
     ) -> None:
         """Handle triggers that start a conversation"""
-        total_samples = len(self.received_data_buffers.get(client_uid, np.array([])))
+        # Snapshot buffer length under lock to avoid race with VAD appends
+        lock = self._buffer_locks.get(client_uid)
+        if not lock:
+            self._buffer_locks[client_uid] = asyncio.Lock()
+            lock = self._buffer_locks[client_uid]
+        async with lock:
+            total_samples = len(
+                self.received_data_buffers.get(client_uid, np.array([]))
+            )
         logger.info(
             f"Conversation trigger received ({data.get('type')}). Buffered audio samples: {total_samples}"
         )

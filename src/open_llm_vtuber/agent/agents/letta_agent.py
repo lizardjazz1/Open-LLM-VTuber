@@ -26,6 +26,7 @@ class LettaAgent(AgentInterface):
         segment_method: str = "pysbd",
         host: str = "localhost",
         port: int = 8283,
+        server_label: str = "server",
     ):
         super().__init__()
         self.url = f"http://{host}:{port}"
@@ -36,6 +37,7 @@ class LettaAgent(AgentInterface):
         self._live2d_model = live2d_model
         self._faster_first_response = faster_first_response
         self._segment_method = segment_method
+        self._server_label = str(server_label or "server").strip() or "server"
 
         # Delay decorator application
         self.chat = tts_filter(self._tts_preprocessor_config)(
@@ -103,9 +105,34 @@ class LettaAgent(AgentInterface):
         # Process text inputs in order
         for text_data in input_data.texts:
             if text_data.source == TextSource.INPUT:
-                message_parts.append(text_data.content)
+                is_system = bool(
+                    getattr(input_data, "metadata", None)
+                    and input_data.metadata.get("proactive_speak")
+                )
+                name = text_data.from_name or "User"
+                if is_system:
+                    message_parts.append(f"[{self._server_label}] {text_data.content}")
+                else:
+                    message_parts.append(
+                        f"[{self._server_label}:{name}] {text_data.content}"
+                    )
             elif text_data.source == TextSource.CLIPBOARD:
                 message_parts.append(f"[Clipboard content: {text_data.content}]")
+            else:
+                try:
+                    from ..input_types import TextSource as _TS
+
+                    if text_data.source == _TS.TWITCH:
+                        nick = text_data.from_name or "User"
+                        message_parts.append(f"[twitch:{nick}] {text_data.content}")
+                    elif text_data.source == _TS.DISCORD:
+                        nick = text_data.from_name or "User"
+                        message_parts.append(f"[discord:{nick}] {text_data.content}")
+                    elif text_data.source == _TS.TELEGRAM:
+                        nick = text_data.from_name or "User"
+                        message_parts.append(f"[telegram:{nick}] {text_data.content}")
+                except Exception:
+                    message_parts.append(text_data.content)
 
         return "\n".join(message_parts)
 
@@ -113,16 +140,23 @@ class LettaAgent(AgentInterface):
         """
         Prepare messages list without image support.
         """
-        messages = []
-
+        messages: List[Dict[str, Any]] = []
+        # Determine if this should be a system message (proactive speak or explicit flag)
+        is_system = bool(
+            getattr(input_data, "metadata", None)
+            and input_data.metadata.get("proactive_speak")
+        )
         if input_data.images:
             content = []
             text_content = self._to_text_prompt(input_data)
             content.append({"type": "text", "text": text_content})
-            user_message = {"role": "user", "content": content}
+            msg = {"role": ("system" if is_system else "user"), "content": content}
         else:
-            user_message = {"role": "user", "content": self._to_text_prompt(input_data)}
+            msg = {
+                "role": ("system" if is_system else "user"),
+                "content": self._to_text_prompt(input_data),
+            }
 
-        messages.append(user_message)
+        messages.append(msg)
 
         return messages

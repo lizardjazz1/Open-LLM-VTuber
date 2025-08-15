@@ -24,6 +24,23 @@ function logMessage(text, type = 'system') {
   els.messages.scrollTop = els.messages.scrollHeight;
 }
 
+function sanitizeTextForUI(text) {
+  if (!text) return text;
+  try {
+    const t = String(text).trim();
+    if (t.startsWith('{') || t.startsWith('[')) {
+      // looks like JSON; hide to avoid leakage
+      return '[summary hidden]';
+    }
+    const riskyKeys = /(facts_about_user|past_events|self_beliefs|objectives|emotions|key_facts)/i;
+    if (riskyKeys.test(t)) return '[summary hidden]';
+    // remove visible voice/emotion commands for clarity
+    const voice = /\{rate:(?:\+|\-)?\d+%\}|\{volume:(?:\+|\-)?\d+%\}|\{pitch:(?:\+|\-)?\d+Hz\}|\{neutral\}/g;
+    const emo = /\[(?:neutral|joy|smile|laugh|anger|disgust|fear|sadness|surprise|confused|thinking|excited|shy|wink)\]/g;
+    return t.replace(voice, '').replace(emo, '').replace(/\s+/g, ' ').trim();
+  } catch { return text; }
+}
+
 function connectWS() {
   const url = window.__PY_FRONTEND__.wsUrl;
   try {
@@ -89,7 +106,7 @@ function safeSend(obj) {
 function handleServerEvent(msg) {
   switch (msg.type) {
     case 'full-text': {
-      if (msg.text) logMessage(msg.text, 'system');
+      if (msg.text) logMessage(sanitizeTextForUI(msg.text), 'system');
       break;
     }
     case 'set-model-and-conf': {
@@ -117,7 +134,8 @@ function handleServerEvent(msg) {
     case 'ai-text':
     case 'display-text': {
       // Display any AI text payloads
-      const text = msg.text || msg.display_text?.text || '[no text]';
+      const raw = msg.text || msg.display_text?.text || '[no text]';
+      const text = sanitizeTextForUI(raw);
       logMessage(String(text), 'ai');
       break;
     }

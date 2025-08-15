@@ -27,6 +27,10 @@ class TTSFactory:
                 rate=kwargs.get("rate", "+0%"),
                 volume=kwargs.get("volume", "+0%"),
                 pitch=kwargs.get("pitch", "+0Hz"),
+                timeout_ms=kwargs.get("timeout_ms"),
+                max_retries=kwargs.get("max_retries"),
+                enable_fallback=kwargs.get("enable_fallback"),
+                piper_model_path=kwargs.get("piper_model_path"),
             )
         elif engine_type == "pyttsx3_tts":
             from .pyttsx3_tts import TTSEngine as Pyttsx3TTSEngine

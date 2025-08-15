@@ -46,6 +46,53 @@ class BasicMemoryAgent(AgentInterface):
     # Keep a bounded short-term memory window to avoid context explosion
     _max_memory_messages: int = 30
 
+    async def warmup_llms(self) -> None:
+        """Warm up chat and memory LLMs by issuing a tiny non-stream request.
+
+        This helps LM Studio pre-load the selected models so first-token latency is reduced
+        and ensures models are actually loaded.
+
+        Returns:
+            None
+        """
+        try:
+            prompts = [
+                {"role": "system", "content": (self._system or "")},
+                {"role": "user", "content": "ping"},
+            ]
+            # chat llm
+            try:
+                if getattr(self._llm, "client", None):
+                    await self._llm.client.chat.completions.create(
+                        messages=prompts,
+                        model=getattr(self._llm, "model", None),
+                        stream=False,
+                        temperature=0.0,
+                        max_tokens=1,
+                        top_p=1.0,
+                    )
+                    logger.info("🔧 Warmed up chat LLM (non-stream).")
+            except Exception as e:
+                logger.debug(f"Warmup chat LLM skipped: {e}")
+
+            # memory llm
+            try:
+                mem = getattr(self, "_memory_llm", None)
+                if mem and getattr(mem, "client", None):
+                    await mem.client.chat.completions.create(
+                        messages=prompts,
+                        model=getattr(mem, "model", None),
+                        stream=False,
+                        temperature=0.0,
+                        max_tokens=1,
+                        top_p=1.0,
+                    )
+                    logger.info("🔧 Warmed up memory LLM (non-stream).")
+            except Exception as e:
+                logger.debug(f"Warmup memory LLM skipped: {e}")
+        except Exception:
+            pass
+
     def __init__(
         self,
         llm: StatelessLLMInterface,
@@ -64,6 +111,10 @@ class BasicMemoryAgent(AgentInterface):
         summarize_timeout_s: int = 25,
         sentiment_max_tokens: int = 96,
         sentiment_timeout_s: int = 12,
+        server_label: str = "server",
+        # NEW: separate memory llm (non-stream)
+        memory_llm: Optional[StatelessLLMInterface] = None,
+        no_think_mode: bool = False,
     ):
         """Initialize agent with LLM and configuration."""
         super().__init__()
@@ -77,15 +128,12 @@ class BasicMemoryAgent(AgentInterface):
         self._tool_prompts = tool_prompts or {}
         self._interrupt_handled = False
         self.prompt_mode_flag = False
-        # First-response tuning state (applies once per session)
-        self._first_response_pending = True
-        self._llm_first_top_p = 0.8
-        self._llm_first_max_tokens = 512
 
         self._tool_manager = tool_manager
         self._tool_executor = tool_executor
         self._mcp_prompt_string = mcp_prompt_string
         self._json_detector = StreamJSONDetector()
+        self._server_label = str(server_label or "server").strip() or "server"
 
         # Configurable LLM limits/timeouts for memory ops
         self._summarize_max_tokens = int(max(32, summarize_max_tokens))
@@ -111,7 +159,11 @@ class BasicMemoryAgent(AgentInterface):
             )
 
         self._set_llm(llm)
+        # NEW: separate memory llm or fallback to main llm
+        self._memory_llm = memory_llm or llm  # SAFETY: backward compatible
         self.set_system(system if system else self._system)
+        # Use the provided system prompt as-is; no automatic directive injection
+        self._system = system
 
         if self._use_mcpp and not all(
             [
@@ -290,7 +342,7 @@ class BasicMemoryAgent(AgentInterface):
         try:
             if not texts:
                 return {}
-            llm = getattr(self, "_llm", None)
+            llm = getattr(self, "_memory_llm", None)  # WHY: use memory llm
             if not llm or not getattr(llm, "client", None):
                 return {}
             joined = "\n".join([t.strip() for t in texts if t and isinstance(t, str)])[
@@ -348,7 +400,15 @@ class BasicMemoryAgent(AgentInterface):
                     "summarize_texts: LLM timeout (25s), returning empty summary"
                 )
                 return {}
-            content = (resp.choices and resp.choices[0].message.content) or "{}"
+            # NEW: reasoning_content fallback
+            content = (resp.choices and resp.choices[0].message.content) or ""
+            if not content:
+                try:
+                    content = (
+                        getattr(resp.choices[0].message, "reasoning_content", "") or ""
+                    )
+                except Exception:
+                    content = ""
             try:
                 data = json.loads(content)
                 if isinstance(data, dict):
@@ -377,7 +437,7 @@ class BasicMemoryAgent(AgentInterface):
         try:
             if not text or not isinstance(text, str):
                 return {}
-            llm = getattr(self, "_llm", None)
+            llm = getattr(self, "_memory_llm", None)  # WHY: use memory llm
             if not llm or not getattr(llm, "client", None):
                 return {}
             system = (
@@ -417,7 +477,16 @@ class BasicMemoryAgent(AgentInterface):
                     "analyze_sentiment: LLM timeout (12s), returning empty result"
                 )
                 return {}
+            # NEW: reasoning_content fallback
             content = (resp.choices and resp.choices[0].message.content) or "{}"
+            if not content:
+                try:
+                    content = (
+                        getattr(resp.choices[0].message, "reasoning_content", "")
+                        or "{}"
+                    )
+                except Exception:
+                    content = "{}"
             try:
                 data = json.loads(content)
                 if isinstance(data, dict) and "score" in data:
@@ -494,7 +563,18 @@ class BasicMemoryAgent(AgentInterface):
             if text_data.source == TextSource.INPUT:
                 # Local/server-origin messages
                 name = text_data.from_name or "User"
-                message_parts.append(f"[Server:{name}] {text_data.content}")
+                is_system = bool(
+                    getattr(input_data, "metadata", None)
+                    and input_data.metadata.get("proactive_speak")
+                )
+                if is_system:
+                    # Proactive server message without username
+                    message_parts.append(f"[{self._server_label}] {text_data.content}")
+                else:
+                    # Regular local or STT input tagged with user name from config
+                    message_parts.append(
+                        f"[{self._server_label}:{name}] {text_data.content}"
+                    )
             elif text_data.source == TextSource.CLIPBOARD:
                 message_parts.append(
                     f"[User shared content from clipboard: {text_data.content}]"
@@ -555,14 +635,20 @@ class BasicMemoryAgent(AgentInterface):
                 )
 
         if user_content:
-            user_message = {"role": "user", "content": user_content}
+            # Map proactive speak to system role to avoid appearing as user input
+            is_system = bool(
+                getattr(input_data, "metadata", None)
+                and input_data.metadata.get("proactive_speak")
+            )
+            role = "system" if is_system else "user"
+            user_message = {"role": role, "content": user_content}
             messages.append(user_message)
 
             skip_memory = False
             if input_data.metadata and input_data.metadata.get("skip_memory", False):
                 skip_memory = True
 
-            if not skip_memory:
+            if not skip_memory and role == "user":
                 self._add_message(
                     text_prompt if text_prompt else "[User provided image(s)]", "user"
                 )
@@ -719,13 +805,13 @@ class BasicMemoryAgent(AgentInterface):
         tools: List[Dict[str, Any]],
     ) -> AsyncIterator[Union[str, Dict[str, Any]]]:
         """Handle OpenAI interaction with tool support."""
-        logger.info(f"🚀 Starting OpenAI tool interaction loop with {len(tools)} tools")
         messages = initial_messages.copy()
         current_turn_text = ""
         pending_tool_calls: Union[List[ToolCallObject], List[Dict[str, Any]]] = []
         current_system_prompt = self._system
 
         while True:
+            # Choose system prompt and tools based on prompt mode
             if self.prompt_mode_flag:
                 if self._mcp_prompt_string:
                     current_system_prompt = (
@@ -739,34 +825,66 @@ class BasicMemoryAgent(AgentInterface):
                 current_system_prompt = self._system
                 tools_for_api = tools
 
+            # Start streaming
             stream = self._llm.chat_completion(
                 messages, current_system_prompt, tools=tools_for_api
             )
+            # Ensure we have an async iterator (some impls return a coroutine)
+            if asyncio.iscoroutine(stream):
+                stream = await stream
+
             pending_tool_calls.clear()
             current_turn_text = ""
             assistant_message_for_api = None
             detected_prompt_json = None
             goto_next_while_iteration = False
 
-            # Получаем поток как асинхронный итератор
-            if asyncio.iscoroutine(stream):
-                stream = await stream
-
             async for event in stream:
-                logger.debug(f"🔍 Processing event: {type(event)} = {event}")
-                logger.debug(f"🔍 prompt_mode_flag: {self.prompt_mode_flag}")
+                # Debug: trace incoming event types
+                try:
+                    if DEBUG_LLM:
+                        et = (
+                            f"dict:{event.get('type')}"
+                            if isinstance(event, dict)
+                            else (
+                                f"list[{len(event)}]"
+                                if isinstance(event, list)
+                                else type(event).__name__
+                            )
+                        )
+                        logger.bind(dst="llm").log(
+                            "DEBUG", f"agent(openai_loop) event={et}"
+                        )
+                except Exception:
+                    pass
                 if self.prompt_mode_flag:
-                    if isinstance(event, str):
-                        current_turn_text += event
+                    # In prompt mode we still stream text for display-first UX
+                    text_chunk = ""
+                    if isinstance(event, dict) and event.get("type") == "text_delta":
+                        text_chunk = event.get("text", "")
+                    elif isinstance(event, str):
+                        text_chunk = event
+                    if text_chunk:
+                        current_turn_text += text_chunk
+                        if DEBUG_LLM:
+                            try:
+                                logger.bind(dst="llm").log(
+                                    "DEBUG",
+                                    f"agent(openai_loop) yield_text(prompt_mode)={repr(text_chunk)}",
+                                )
+                            except Exception:
+                                pass
+                        yield text_chunk
                         if self._json_detector:
-                            potential_json = self._json_detector.process_chunk(event)
+                            potential_json = self._json_detector.process_chunk(
+                                text_chunk
+                            )
                             if potential_json:
                                 try:
                                     if isinstance(potential_json, list):
                                         detected_prompt_json = potential_json
                                     elif isinstance(potential_json, dict):
                                         detected_prompt_json = [potential_json]
-
                                     if detected_prompt_json:
                                         break
                                 except Exception as e:
@@ -776,14 +894,38 @@ class BasicMemoryAgent(AgentInterface):
                                     yield f"[Error parsing tool JSON: {e}]"
                                     goto_next_while_iteration = True
                                     break
-                        yield event
+                    elif event == "__API_NOT_SUPPORT_TOOLS__":
+                        logger.warning(
+                            f"LLM {getattr(self._llm, 'model', '')} has no native tool support. Switching to prompt mode."
+                        )
+                        self.prompt_mode_flag = True
+                        if self._tool_manager:
+                            self._tool_manager.disable()
+                        if self._json_detector:
+                            self._json_detector.reset()
+                        goto_next_while_iteration = True
+                        break
+                    else:
+                        # ignore non-text events in prompt mode
+                        continue
                 else:
-                    logger.debug(
-                        f"🔍 Processing event in else block: {type(event)} = {event}"
-                    )
-                    if isinstance(event, str):
-                        current_turn_text += event
-                        yield event
+                    # Native tools mode
+                    text_chunk = ""
+                    if isinstance(event, dict) and event.get("type") == "text_delta":
+                        text_chunk = event.get("text", "")
+                    elif isinstance(event, str):
+                        text_chunk = event
+                    if text_chunk:
+                        current_turn_text += text_chunk
+                        if DEBUG_LLM:
+                            try:
+                                logger.bind(dst="llm").log(
+                                    "DEBUG",
+                                    f"agent(openai_loop) yield_text(native)={repr(text_chunk)}",
+                                )
+                            except Exception:
+                                pass
+                        yield text_chunk
                     elif isinstance(event, list) and all(
                         isinstance(tc, ToolCallObject) for tc in event
                     ):
@@ -808,38 +950,18 @@ class BasicMemoryAgent(AgentInterface):
                         logger.warning(
                             f"LLM {getattr(self._llm, 'model', '')} has no native tool support. Switching to prompt mode."
                         )
-                        logger.info("🔄 Processing __API_NOT_SUPPORT_TOOLS__ signal")
-                        logger.info(
-                            f"🔄 Current prompt_mode_flag: {self.prompt_mode_flag}"
-                        )
-                        # Добавляем детальное логирование
-                        if self._tool_manager:
-                            available_tools = getattr(
-                                self._tool_manager, "_formatted_tools_openai", []
-                            )
-                            tool_names = [
-                                tool.get("function", {}).get("name", "unknown")
-                                for tool in available_tools
-                            ]
-                            logger.warning(
-                                f"Available tools that will be used in prompt mode: {tool_names}"
-                            )
-                        logger.warning(
-                            "Prompt mode will use JSON detection for tool calls instead of native API support"
-                        )
                         self.prompt_mode_flag = True
-                        logger.info(
-                            f"🔄 Set prompt_mode_flag to: {self.prompt_mode_flag}"
-                        )
                         if self._tool_manager:
                             self._tool_manager.disable()
                         if self._json_detector:
                             self._json_detector.reset()
                         goto_next_while_iteration = True
                         break
+
             if goto_next_while_iteration:
                 continue
 
+            # Handle prompt-mode detected tools
             if detected_prompt_json:
                 logger.info("Processing tools detected via prompt mode JSON.")
                 self._add_message(current_turn_text, "assistant")
@@ -887,6 +1009,7 @@ class BasicMemoryAgent(AgentInterface):
                         )
                 continue
 
+            # Handle native tool calls
             elif pending_tool_calls and assistant_message_for_api:
                 messages.append(assistant_message_for_api)
                 if current_turn_text:
@@ -924,12 +1047,10 @@ class BasicMemoryAgent(AgentInterface):
                     )
                 continue
 
+            # Turn finished without tools
             else:
                 if current_turn_text:
                     self._add_message(current_turn_text, "assistant")
-                    logger.info(f"💬 Final response generated: {current_turn_text}")
-                else:
-                    logger.warning("❌ No response generated after tool execution")
                 return
 
     def _chat_function_factory(
@@ -1000,24 +1121,9 @@ class BasicMemoryAgent(AgentInterface):
                 return
             else:
                 logger.info("Starting simple chat completion.")
-                # Apply lighter sampling limits only for the very first response
-                original_top_p = getattr(self._llm, "top_p", None)
-                original_max_tokens = getattr(self._llm, "max_tokens", None)
-                try:
-                    if self._first_response_pending:
-                        if hasattr(self._llm, "top_p"):
-                            self._llm.top_p = self._llm_first_top_p
-                        if hasattr(self._llm, "max_tokens"):
-                            self._llm.max_tokens = self._llm_first_max_tokens
-                    token_stream = self._llm.chat_completion(messages, self._system)
-                finally:
-                    # Restore defaults immediately after obtaining the stream
-                    if self._first_response_pending:
-                        if original_top_p is not None:
-                            self._llm.top_p = original_top_p
-                        if original_max_tokens is not None:
-                            self._llm.max_tokens = original_max_tokens
-                        self._first_response_pending = False
+                token_stream = self._llm.chat_completion(messages, self._system)
+                if asyncio.iscoroutine(token_stream):
+                    token_stream = await token_stream
                 complete_response = ""
                 async for event in token_stream:
                     text_chunk = ""
@@ -1032,21 +1138,22 @@ class BasicMemoryAgent(AgentInterface):
                         complete_response += text_chunk
                 if complete_response:
                     # Try to parse JSON response and extract the "response" field
-                    try:
-                        import json
+                    # Temporarily disabled to allow normal text responses
+                    # try:
+                    #     import json
 
-                        parsed_json = json.loads(complete_response)
-                        if isinstance(parsed_json, dict) and "response" in parsed_json:
-                            # Extract only the response field from JSON
-                            complete_response = parsed_json["response"]
-                            logger.info(
-                                f"Extracted response from JSON: {complete_response}"
-                            )
-                    except (json.JSONDecodeError, KeyError):
-                        # If not valid JSON or no response field, use as-is
-                        logger.debug(
-                            "Response is not valid JSON or missing response field, using as-is"
-                        )
+                    #     parsed_json = json.loads(complete_response)
+                    #     if isinstance(parsed_json, dict) and "response" in parsed_json:
+                    #         # Extract only the response field from JSON
+                    #         complete_response = parsed_json["response"]
+                    #         logger.info(
+                    #             f"Extracted response from JSON: {complete_response}"
+                    #         )
+                    # except (json.JSONDecodeError, KeyError):
+                    #     # If not valid JSON or no response field, use as-is
+                    #     logger.debug(
+                    #         "Response is not valid JSON or missing response field, using as-is"
+                    #     )
                     # Deduplicate repeated sentences heuristically
                     try:
                         parts = [
